@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Environment variables (API keys - never commit)
+.env.local
+.env*.local
+
+.DS_Store
