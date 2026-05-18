@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AppView = "onboarding" | "upload" | "analyzing" | "result" | "recipe" | "settings";
+type AppView = "onboarding" | "upload" | "analyzing" | "result" | "recipe" | "settings" | "login";
 type AnalyzingPhase = "scanning" | "generating";
 
 type Meal = {
@@ -41,7 +43,17 @@ type RecipeData = {
 };
 
 const MAX_IMAGES = 5;
+const GUEST_LIMIT = 5;
 const DIFFICULTY_LABEL = { easy: "かんたん", medium: "普通", hard: "本格" } as const;
+
+function getGuestCount(): number {
+  return parseInt(localStorage.getItem("snapmeal_guest_count") ?? "0", 10);
+}
+function incrementGuestCount(): number {
+  const next = getGuestCount() + 1;
+  localStorage.setItem("snapmeal_guest_count", String(next));
+  return next;
+}
 
 // ─── Image helpers ─────────────────────────────────────────────────────────────
 
@@ -102,6 +114,7 @@ async function readSSE(
 
 export default function HomePage() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [view, setView] = useState<AppView>("upload");
   const [images, setImages] = useState<ImageItem[]>([]);
@@ -115,12 +128,15 @@ export default function HomePage() {
   const [recipe, setRecipe] = useState<RecipeData | null>(null);
   const [recipeLoading, setRecipeLoading] = useState(false);
   const [selectedAppliance, setSelectedAppliance] = useState<string>("pan");
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [loginPrompt, setLoginPrompt] = useState<{ show: boolean; reason: "favorite" | "limit" }>({ show: false, reason: "favorite" });
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
 
   const defaultAppliance = (s: UserSettings) =>
     s.appliances.includes("hotcook") ? "hotcook" : (s.appliances[0] ?? "pan");
 
   useEffect(() => {
+    // ゲストでも使えるようにローカルストレージから設定を読む
     try {
       const stored = localStorage.getItem("snapmeal_settings");
       if (stored) {
@@ -130,9 +146,31 @@ export default function HomePage() {
       } else {
         setView("onboarding");
       }
+      const savedFavorites = localStorage.getItem("snapmeal_favorites");
+      if (savedFavorites) setFavorites(JSON.parse(savedFavorites));
     } finally {
       setSettingsLoaded(true);
     }
+
+    // ログイン済みの場合はユーザー情報をセット（任意）
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setUser(session.user);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        setUser(session.user);
+        // ログイン成功: ゲスト回数リセット・プロンプト閉じる
+        localStorage.removeItem("snapmeal_guest_count");
+        setLoginPrompt({ show: false, reason: "favorite" });
+        setView((v) => v === "login" ? "upload" : v);
+      } else if (event === "SIGNED_OUT") {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // ── Image handling ──────────────────────────────────────────────────────────
@@ -222,8 +260,33 @@ export default function HomePage() {
 
   // ── Phase A: analyze ────────────────────────────────────────────────────────
 
+  const toggleFavorite = useCallback((meal: Meal) => {
+    if (!user) {
+      setLoginPrompt({ show: true, reason: "favorite" });
+      return;
+    }
+    setFavorites((prev) => {
+      const next = prev.includes(meal.id)
+        ? prev.filter((id) => id !== meal.id)
+        : [...prev, meal.id];
+      localStorage.setItem("snapmeal_favorites", JSON.stringify(next));
+      return next;
+    });
+  }, [user]);
+
   const startAnalysis = useCallback(async () => {
     if (!images.length) return;
+
+    // ゲストの使用回数チェック
+    if (!user) {
+      const count = getGuestCount();
+      if (count >= GUEST_LIMIT) {
+        setLoginPrompt({ show: true, reason: "limit" });
+        return;
+      }
+      incrementGuestCount();
+    }
+
     setView("analyzing");
     setAnalyzingPhase("scanning");
     setStreamingIngredients([]);
@@ -272,6 +335,10 @@ export default function HomePage() {
 
   if (!settingsLoaded) return null;
 
+  if (view === "login") {
+    return <LoginView onBack={() => setView("upload")} />;
+  }
+
   if (view === "onboarding") {
     return <OnboardingView onComplete={saveSettings} />;
   }
@@ -297,13 +364,24 @@ export default function HomePage() {
 
   if (view === "result") {
     return (
-      <ResultView
-        meals={meals}
-        activeMealIdx={activeMealIdx}
-        onChangeIdx={setActiveMealIdx}
-        onBack={() => setView("upload")}
-        onSelectMeal={fetchRecipe}
-      />
+      <>
+        <ResultView
+          meals={meals}
+          activeMealIdx={activeMealIdx}
+          onChangeIdx={setActiveMealIdx}
+          onBack={() => setView("upload")}
+          onSelectMeal={fetchRecipe}
+          favorites={favorites}
+          onToggleFavorite={toggleFavorite}
+        />
+        {loginPrompt.show && (
+          <LoginPromptModal
+            reason={loginPrompt.reason}
+            onLogin={() => setView("login")}
+            onClose={() => setLoginPrompt((p) => ({ ...p, show: false }))}
+          />
+        )}
+      </>
     );
   }
 
@@ -318,20 +396,29 @@ export default function HomePage() {
   }
 
   return (
-    <UploadView
-      images={images}
-      tiredMode={tiredMode}
-      ownedAppliances={settings?.appliances ?? []}
-      selectedAppliance={selectedAppliance}
-      error={error}
-      fileInputRef={fileInputRef}
-      onAddFiles={addFiles}
-      onRemoveImage={removeImage}
-      onToggleTired={() => setTiredMode((v) => !v)}
-      onChangeAppliance={setSelectedAppliance}
-      onAnalyze={startAnalysis}
-      onOpenSettings={() => setView("settings")}
-    />
+    <>
+      <UploadView
+        images={images}
+        tiredMode={tiredMode}
+        ownedAppliances={settings?.appliances ?? []}
+        selectedAppliance={selectedAppliance}
+        error={error}
+        fileInputRef={fileInputRef}
+        onAddFiles={addFiles}
+        onRemoveImage={removeImage}
+        onToggleTired={() => setTiredMode((v) => !v)}
+        onChangeAppliance={setSelectedAppliance}
+        onAnalyze={startAnalysis}
+        onOpenSettings={() => setView("settings")}
+      />
+      {loginPrompt.show && (
+        <LoginPromptModal
+          reason={loginPrompt.reason}
+          onLogin={() => setView("login")}
+          onClose={() => setLoginPrompt((p) => ({ ...p, show: false }))}
+        />
+      )}
+    </>
   );
 }
 
@@ -558,12 +645,21 @@ function SettingsView({
         </div>
       </div>
 
-      <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100">
+      <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100 space-y-3">
         <button
           onClick={() => onSave({ servings, appliances, ng_foods: ngFoods })}
           className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition"
         >
           保存する
+        </button>
+        <button
+          onClick={async () => {
+            const supabase = createClient();
+            await supabase.auth.signOut();
+          }}
+          className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
+        >
+          ログアウト
         </button>
       </div>
     </main>
@@ -908,18 +1004,23 @@ function ResultView({
   onChangeIdx,
   onBack,
   onSelectMeal,
+  favorites,
+  onToggleFavorite,
 }: {
   meals: Meal[];
   activeMealIdx: number;
   onChangeIdx: (idx: number) => void;
   onBack: () => void;
   onSelectMeal: (meal: Meal) => void;
+  favorites: string[];
+  onToggleFavorite: (meal: Meal) => void;
 }) {
   const meal = meals[activeMealIdx];
   if (!meal) return null;
 
   const canGoNext = activeMealIdx < meals.length - 1;
   const totalSlots = 3;
+  const isFavorite = favorites.includes(meal.id);
 
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
@@ -927,6 +1028,13 @@ function ResultView({
       <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 bg-white">
         <button onClick={onBack} className="text-gray-500 text-lg p-1">←</button>
         <h2 className="font-bold text-gray-800 text-lg">今夜の献立</h2>
+        <button
+          onClick={() => onToggleFavorite(meal)}
+          className="ml-auto text-2xl transition-transform active:scale-90"
+          aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
+        >
+          {isFavorite ? "❤️" : "🤍"}
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
@@ -1002,6 +1110,144 @@ function ResultView({
             ? "別の献立を準備中..."
             : "別の献立を見る"}
         </button>
+      </div>
+    </main>
+  );
+}
+
+// ─── Login prompt modal ───────────────────────────────────────────────────────
+
+function LoginPromptModal({
+  reason,
+  onLogin,
+  onClose,
+}: {
+  reason: "favorite" | "limit";
+  onLogin: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-8">
+      <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl">
+        <div className="text-center mb-5">
+          <p className="text-4xl mb-3">{reason === "favorite" ? "❤️" : "⚡"}</p>
+          <h3 className="text-lg font-bold text-gray-900 mb-1">
+            {reason === "favorite" ? "お気に入りを保存しよう" : "無料利用上限に達しました"}
+          </h3>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            {reason === "favorite"
+              ? "ログインするとお気に入りの献立を保存・管理できます。"
+              : `ゲストは${GUEST_LIMIT}回まで無料で使えます。ログインすると制限なく使えます。`}
+          </p>
+        </div>
+        <button
+          onClick={onLogin}
+          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition mb-3"
+        >
+          ログインする（無料）
+        </button>
+        <button
+          onClick={onClose}
+          className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
+        >
+          あとで
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Login view ───────────────────────────────────────────────────────────────
+
+function LoginView({ onBack }: { onBack: () => void }) {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const sendMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setLoading(true);
+    setError(null);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      setSent(true);
+    }
+  };
+
+  if (sent) {
+    return (
+      <main className="min-h-screen bg-surface flex flex-col items-center justify-center max-w-lg mx-auto px-6">
+        <div className="text-center">
+          <p className="text-6xl mb-6">📧</p>
+          <h2 className="text-xl font-bold text-gray-800 mb-3">メールを送信しました</h2>
+          <p className="text-sm text-gray-500 mb-1">
+            <span className="font-medium text-gray-700">{email}</span> にログインリンクを送りました。
+          </p>
+          <p className="text-sm text-gray-400">メール内のリンクをタップしてください。</p>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto px-6">
+      <div className="flex items-center pt-6 pb-2">
+        <button onClick={onBack} className="text-gray-500 text-lg p-1">←</button>
+      </div>
+      <div className="flex-1 flex flex-col items-center justify-center">
+      <div className="w-full">
+        <div className="text-center mb-10">
+          <p className="text-6xl mb-4">📸</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Snapmeal</h1>
+          <p className="text-gray-500 text-sm">冷蔵庫を撮るだけ。30秒で今夜の夕食が決まる。</p>
+        </div>
+
+        <form onSubmit={sendMagicLink} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              メールアドレス
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              required
+              autoFocus
+              className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-orange-100 transition text-base"
+            />
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-500 text-center bg-red-50 py-2 px-4 rounded-xl">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || !email.trim()}
+            className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {loading ? "送信中..." : "ログインリンクを送る"}
+          </button>
+        </form>
+
+        <p className="text-center text-xs text-gray-400 mt-6 leading-relaxed">
+          パスワード不要。メールのリンクをタップするだけでログインできます。
+        </p>
+      </div>
       </div>
     </main>
   );
