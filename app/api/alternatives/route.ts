@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { randomUUID } from "crypto";
+import { getAuthUserId, saveMealHistory } from "@/lib/supabase/db";
 
 const ALWAYS_AVAILABLE_SEASONINGS = `
 醤油・塩・胡椒・砂糖・みりん・料理酒・酢・サラダ油・ごま油・バター・マヨネーズ・ケチャップ
@@ -77,7 +78,13 @@ function extractJSON(text: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const { ingredients, tired_mode = false, meal_1_name, meal_1_type } = await req.json();
+  const {
+    ingredients,
+    tired_mode = false,
+    meal_1_name,
+    meal_1_type,
+    session_id,
+  } = await req.json();
 
   if (!ingredients?.length) {
     return new Response("ingredients required", { status: 400 });
@@ -99,18 +106,39 @@ export async function POST(req: NextRequest) {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
         const prompt = buildPrompt(ingredients, tired_mode, meal_1_name ?? "", meal_1_type ?? "best");
 
-        // Phase B はテキストのみ（画像なし）→ 高速・安価
         const result = await model.generateContent(prompt);
         const fullText = result.response.text();
 
         const parsed = JSON.parse(extractJSON(fullText)) as {
-          meals: Record<string, unknown>[];
+          meals: {
+            name: string;
+            genre: string;
+            main_ingredient: string;
+            cooking_method: string;
+            [key: string]: unknown;
+          }[];
         };
 
         for (const meal of parsed.meals ?? []) {
           meal.id = randomUUID();
           send("meal", { meal });
         }
+
+        // ログインユーザーかつ session_id がある場合のみ履歴保存
+        const userId = await getAuthUserId();
+        if (userId && session_id && parsed.meals?.length) {
+          await saveMealHistory({
+            userId,
+            sessionId: session_id,
+            meals: parsed.meals.map((m) => ({
+              meal_name: m.name,
+              genre: m.genre,
+              main_ingredient: m.main_ingredient,
+              cooking_method: m.cooking_method,
+            })),
+          });
+        }
+
         send("done", {});
       } catch (err) {
         send("error", { message: err instanceof Error ? err.message : String(err) });
