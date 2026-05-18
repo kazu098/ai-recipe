@@ -104,26 +104,67 @@ export async function markMealSelected(params: {
     .eq("meal_name", params.mealName);
 }
 
-/** 月次利用回数を +1 してカウントを返す */
-export async function incrementUsageCounter(userId: string): Promise<number> {
+const PLAN_LIMITS: Record<string, number> = {
+  free: 10,
+  pro: 90,
+  pro_annual: 90,
+};
+
+/**
+ * 利用回数をチェックし、上限未満なら +1 してカウントを返す。
+ * 上限に達している場合は null を返す。
+ */
+export async function checkAndIncrementUsage(
+  userId: string
+): Promise<{ count: number; limit: number } | null> {
   const supabase = createClient();
-  const yearMonth = new Date().toISOString().slice(0, 7); // '2026-05'
+  const yearMonth = new Date().toISOString().slice(0, 7);
+
+  // プランと現在のカウントを並列取得
+  const [profileRes, counterRes] = await Promise.all([
+    supabase.from("profiles").select("plan").eq("id", userId).single(),
+    supabase
+      .from("usage_counters")
+      .select("count")
+      .eq("user_id", userId)
+      .eq("year_month", yearMonth)
+      .maybeSingle(),
+  ]);
+
+  const plan = (profileRes.data?.plan as string) ?? "free";
+  const limit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
+  const currentCount = (counterRes.data?.count as number) ?? 0;
+
+  if (currentCount >= limit) return null;
+
   const { data } = await supabase.rpc("increment_usage_counter", {
     p_user_id: userId,
     p_year_month: yearMonth,
   });
-  return (data as number) ?? 0;
+
+  return { count: (data as number) ?? currentCount + 1, limit };
 }
 
-/** 今月の利用回数を取得 */
-export async function getUsageCount(userId: string): Promise<number> {
+/** 今月の利用回数とプラン上限を取得 */
+export async function getUsageStatus(
+  userId: string
+): Promise<{ count: number; limit: number; plan: string }> {
   const supabase = createClient();
   const yearMonth = new Date().toISOString().slice(0, 7);
-  const { data } = await supabase
-    .from("usage_counters")
-    .select("count")
-    .eq("user_id", userId)
-    .eq("year_month", yearMonth)
-    .maybeSingle();
-  return (data?.count as number) ?? 0;
+
+  const [profileRes, counterRes] = await Promise.all([
+    supabase.from("profiles").select("plan").eq("id", userId).single(),
+    supabase
+      .from("usage_counters")
+      .select("count")
+      .eq("user_id", userId)
+      .eq("year_month", yearMonth)
+      .maybeSingle(),
+  ]);
+
+  const plan = (profileRes.data?.plan as string) ?? "free";
+  const limit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
+  const count = (counterRes.data?.count as number) ?? 0;
+
+  return { count, limit, plan };
 }
