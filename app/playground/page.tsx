@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useRef } from "react";
 
 type ImageItem = { file: File; dataUrl: string };
@@ -24,7 +26,6 @@ type ModelResult = {
   ingredients?: string[];
   meal?: Meal;
   error?: string;
-  showRaw: boolean;
 };
 
 const MODELS: Pick<ModelResult, "model" | "label" | "costPerSession">[] = [
@@ -36,7 +37,7 @@ const MODELS: Pick<ModelResult, "model" | "label" | "costPerSession">[] = [
 const MAX_IMAGES = 5;
 
 function makeInitialResults(): ModelResult[] {
-  return MODELS.map((m) => ({ ...m, status: "idle", streamingText: "", showRaw: false }));
+  return MODELS.map((m) => ({ ...m, status: "idle", streamingText: "" }));
 }
 
 async function runModelStream(
@@ -185,14 +186,6 @@ export default function PlaygroundPage() {
     setRunning(false);
   };
 
-  const toggleRaw = (idx: number) => {
-    setResults((prev) => {
-      const next = [...prev];
-      next[idx] = { ...next[idx], showRaw: !next[idx].showRaw };
-      return next;
-    });
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -261,8 +254,8 @@ export default function PlaygroundPage() {
 
         {/* Results grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {results.map((r, idx) => (
-            <ResultCard key={r.model} result={r} onToggleRaw={() => toggleRaw(idx)} />
+          {results.map((r) => (
+            <ResultCard key={r.model} result={r} />
           ))}
         </div>
 
@@ -274,7 +267,8 @@ export default function PlaygroundPage() {
   );
 }
 
-function ResultCard({ result, onToggleRaw }: { result: ModelResult; onToggleRaw: () => void }) {
+function ResultCard({ result }: { result: ModelResult }) {
+  const [showRaw, setShowRaw] = useState(false);
   const statusBg = {
     idle: "bg-gray-100 text-gray-500",
     streaming: "bg-yellow-50 text-yellow-700",
@@ -368,10 +362,10 @@ function ResultCard({ result, onToggleRaw }: { result: ModelResult; onToggleRaw:
 
             {/* Raw toggle */}
             <div className="mt-auto pt-3 border-t">
-              <button className="text-xs text-gray-400 hover:text-gray-600" onClick={onToggleRaw}>
-                {result.showRaw ? "▲ 生レスポンスを隠す" : "▼ 生レスポンスを見る"}
+              <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setShowRaw((v) => !v)}>
+                {showRaw ? "▲ 生レスポンスを隠す" : "▼ 生レスポンスを見る"}
               </button>
-              {result.showRaw && (
+              {showRaw && (
                 <pre className="text-xs mt-2 bg-gray-50 rounded p-2 overflow-auto max-h-40 font-mono whitespace-pre-wrap break-all">
                   {result.streamingText}
                 </pre>
