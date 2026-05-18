@@ -96,7 +96,10 @@ export async function POST(req: NextRequest) {
         }
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({
+          model: "gemini-2.5-flash",
+          generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as never,
+        });
         const prompt = buildPrompt(ingredients, tired_mode, meal_1_name ?? "", meal_1_type ?? "best");
 
         // Phase B はテキストのみ（画像なし）→ 高速・安価
