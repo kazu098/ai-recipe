@@ -114,13 +114,19 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [recipe, setRecipe] = useState<RecipeData | null>(null);
   const [recipeLoading, setRecipeLoading] = useState(false);
+  const [selectedAppliance, setSelectedAppliance] = useState<string>("pan");
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+
+  const defaultAppliance = (s: UserSettings) =>
+    s.appliances.includes("hotcook") ? "hotcook" : (s.appliances[0] ?? "pan");
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem("snapmeal_settings");
       if (stored) {
-        setSettings(JSON.parse(stored));
+        const s: UserSettings = JSON.parse(stored);
+        setSettings(s);
+        setSelectedAppliance(defaultAppliance(s));
       } else {
         setView("onboarding");
       }
@@ -153,6 +159,7 @@ export default function HomePage() {
   const saveSettings = useCallback((s: UserSettings) => {
     localStorage.setItem("snapmeal_settings", JSON.stringify(s));
     setSettings(s);
+    setSelectedAppliance(defaultAppliance(s));
     setView("upload");
   }, []);
 
@@ -172,7 +179,7 @@ export default function HomePage() {
           genre: meal.genre,
           cookingMethod: meal.cooking_method,
           servings: settings?.servings ?? 2,
-          appliances: settings?.appliances ?? [],
+          appliances: [selectedAppliance],
           ngFoods: settings?.ng_foods ?? "",
         }),
       });
@@ -183,7 +190,7 @@ export default function HomePage() {
     } finally {
       setRecipeLoading(false);
     }
-  }, [settings]);
+  }, [settings, selectedAppliance]);
 
   // ── Phase B: alternatives (background) ─────────────────────────────────────
 
@@ -314,11 +321,14 @@ export default function HomePage() {
     <UploadView
       images={images}
       tiredMode={tiredMode}
+      ownedAppliances={settings?.appliances ?? []}
+      selectedAppliance={selectedAppliance}
       error={error}
       fileInputRef={fileInputRef}
       onAddFiles={addFiles}
       onRemoveImage={removeImage}
       onToggleTired={() => setTiredMode((v) => !v)}
+      onChangeAppliance={setSelectedAppliance}
       onAnalyze={startAnalysis}
       onOpenSettings={() => setView("settings")}
     />
@@ -562,24 +572,37 @@ function SettingsView({
 
 // ─── Upload view ──────────────────────────────────────────────────────────────
 
+const APPLIANCE_LABELS: Record<string, { label: string; icon: string }> = {
+  hotcook: { label: "ホットクック", icon: "🥘" },
+  pan: { label: "フライパン", icon: "🍳" },
+  microwave: { label: "レンジ", icon: "📦" },
+  oven: { label: "オーブン", icon: "🔥" },
+};
+
 function UploadView({
   images,
   tiredMode,
+  ownedAppliances,
+  selectedAppliance,
   error,
   fileInputRef,
   onAddFiles,
   onRemoveImage,
   onToggleTired,
+  onChangeAppliance,
   onAnalyze,
   onOpenSettings,
 }: {
   images: ImageItem[];
   tiredMode: boolean;
+  ownedAppliances: string[];
+  selectedAppliance: string;
   error: string | null;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onAddFiles: (files: FileList | File[]) => void;
   onRemoveImage: (idx: number) => void;
   onToggleTired: () => void;
+  onChangeAppliance: (a: string) => void;
   onAnalyze: () => void;
   onOpenSettings: () => void;
 }) {
@@ -660,7 +683,7 @@ function UploadView({
       </p>
 
       {/* Tired mode toggle */}
-      <div className="bg-white rounded-2xl p-4 mb-6 border border-gray-100">
+      <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
         <p className="text-sm font-semibold text-gray-700 mb-3">今日の余力は？</p>
         <div className="flex gap-2">
           <button
@@ -685,6 +708,33 @@ function UploadView({
           </button>
         </div>
       </div>
+
+      {/* Appliance selector (only when user owns multiple) */}
+      {ownedAppliances.length <= 1 && <div className="mb-2" />}
+      {ownedAppliances.length > 1 && (
+        <div className="bg-white rounded-2xl p-4 mb-6 border border-gray-100">
+          <p className="text-sm font-semibold text-gray-700 mb-3">今日使う調理器具は？</p>
+          <div className="flex gap-2 flex-wrap">
+            {ownedAppliances.map((id) => {
+              const label = APPLIANCE_LABELS[id] ?? { label: id, icon: "🍴" };
+              return (
+                <button
+                  key={id}
+                  onClick={() => onChangeAppliance(id)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition ${
+                    selectedAppliance === id
+                      ? "bg-primary text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  <span>{label.icon}</span>
+                  <span>{label.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Analyze button */}
       <button
