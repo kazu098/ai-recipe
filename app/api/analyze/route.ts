@@ -72,10 +72,7 @@ async function streamWithGemini(
   send: SendFn
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
-    generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as never,
-  });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
   const imageParts = imageDataUrls.map((url) => ({
     inlineData: {
@@ -151,7 +148,7 @@ export async function POST(req: NextRequest) {
       let fullText = "";
 
       try {
-        // Gemini 2.5 Flash をPrimaryとして使用。失敗時はGPT-4oにフォールバック
+        // Gemini 2.5 Flash Lite をPrimaryとして使用。失敗時はGPT-4oにフォールバック
         if (process.env.GEMINI_API_KEY) {
           try {
             fullText = await streamWithGemini(imageDataUrls, prompt, send);
