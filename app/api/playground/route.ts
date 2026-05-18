@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const SYSTEM_PROMPT = `あなたは家庭料理の専門家です。
-冷蔵庫の写真から食材を認識し、共働き家庭向けに献立を1案提案してください。
+冷蔵庫の写真（複数枚）から食材を認識し、共働き家庭向けに献立を1案提案してください。
+複数の写真がある場合は、全ての写真を合わせて食材を網羅的にリストアップしてください。
 
 出力は必ず以下のJSONのみ（マークダウン不要）:
 {
@@ -23,84 +24,119 @@ function extractJSON(text: string): string {
   return jsonMatch ? jsonMatch[0] : text;
 }
 
-async function callGPT4o(imageDataUrl: string) {
+type SendFn = (event: string, data: unknown) => void;
+
+async function streamGPT4o(imageDataUrls: string[], send: SendFn) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  const base64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, "");
-  const mimeType = imageDataUrl.match(/^data:(image\/\w+);/)?.[1] ?? "image/jpeg";
+  const imageContents: OpenAI.Chat.ChatCompletionContentPart[] = imageDataUrls.map((dataUrl) => ({
+    type: "image_url",
+    image_url: { url: dataUrl, detail: "auto" },
+  }));
 
-  const response = await client.chat.completions.create({
+  const stream = await client.chat.completions.create({
     model: "gpt-4o",
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "text", text: SYSTEM_PROMPT },
-          { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}`, detail: "low" } },
-        ],
-      },
-    ],
+    messages: [{ role: "user", content: [{ type: "text", text: SYSTEM_PROMPT }, ...imageContents] }],
     max_tokens: 800,
+    stream: true,
   });
 
-  const raw = response.choices[0].message.content ?? "";
-  return { raw, parsed: JSON.parse(extractJSON(raw)) };
+  let fullText = "";
+  for await (const chunk of stream) {
+    const text = chunk.choices[0]?.delta?.content ?? "";
+    if (text) {
+      fullText += text;
+      send("chunk", { text });
+    }
+  }
+
+  const parsed = JSON.parse(extractJSON(fullText)) as { ingredients: string[]; meal: unknown };
+  send("done", { ingredients: parsed.ingredients ?? [], meal: parsed.meal ?? null, rawResponse: fullText });
 }
 
-async function callGemini(model: "gemini-2.5-pro-preview-05-06" | "gemini-2.5-flash-preview-04-17", imageDataUrl: string) {
+async function streamGemini(
+  model: "gemini-2.5-pro" | "gemini-2.5-flash",
+  imageDataUrls: string[],
+  send: SendFn
+) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
   const geminiModel = genAI.getGenerativeModel({ model });
 
-  const base64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, "");
-  const mimeType = (imageDataUrl.match(/^data:(image\/\w+);/)?.[1] ?? "image/jpeg") as "image/jpeg" | "image/png" | "image/webp";
+  const imageParts = imageDataUrls.map((dataUrl) => ({
+    inlineData: {
+      data: dataUrl.replace(/^data:image\/\w+;base64,/, ""),
+      mimeType: (dataUrl.match(/^data:(image\/\w+);/)?.[1] ?? "image/jpeg") as
+        | "image/jpeg"
+        | "image/png"
+        | "image/webp",
+    },
+  }));
 
-  const result = await geminiModel.generateContent([
-    SYSTEM_PROMPT,
-    { inlineData: { data: base64, mimeType } },
-  ]);
+  const result = await geminiModel.generateContentStream([SYSTEM_PROMPT, ...imageParts]);
 
-  const raw = result.response.text();
-  return { raw, parsed: JSON.parse(extractJSON(raw)) };
+  let fullText = "";
+  for await (const chunk of result.stream) {
+    const text = chunk.text();
+    if (text) {
+      fullText += text;
+      send("chunk", { text });
+    }
+  }
+
+  const parsed = JSON.parse(extractJSON(fullText)) as { ingredients: string[]; meal: unknown };
+  send("done", { ingredients: parsed.ingredients ?? [], meal: parsed.meal ?? null, rawResponse: fullText });
 }
 
 export async function POST(req: NextRequest) {
-  const { model, imageDataUrl } = await req.json();
+  const { model, imageDataUrls } = await req.json();
 
-  if (!imageDataUrl) {
-    return NextResponse.json({ error: "imageDataUrl is required" }, { status: 400 });
+  if (!imageDataUrls || !Array.isArray(imageDataUrls) || imageDataUrls.length === 0) {
+    return new Response("imageDataUrls (配列) が必要です", { status: 400 });
+  }
+  if (imageDataUrls.length > 5) {
+    return new Response("画像は最大5枚までです", { status: 400 });
   }
 
-  try {
-    let raw: string;
-    let parsed: unknown;
+  const encoder = new TextEncoder();
 
-    if (model === "gpt-4o") {
-      if (!process.env.OPENAI_API_KEY) {
-        return NextResponse.json({ error: "OPENAI_API_KEY が .env.local に設定されていません" }, { status: 500 });
-      }
-      ({ raw, parsed } = await callGPT4o(imageDataUrl));
-    } else if (model === "gemini-2.5-pro") {
-      if (!process.env.GEMINI_API_KEY) {
-        return NextResponse.json({ error: "GEMINI_API_KEY が .env.local に設定されていません" }, { status: 500 });
-      }
-      ({ raw, parsed } = await callGemini("gemini-2.5-pro-preview-05-06", imageDataUrl));
-    } else if (model === "gemini-2.5-flash") {
-      if (!process.env.GEMINI_API_KEY) {
-        return NextResponse.json({ error: "GEMINI_API_KEY が .env.local に設定されていません" }, { status: 500 });
-      }
-      ({ raw, parsed } = await callGemini("gemini-2.5-flash-preview-04-17", imageDataUrl));
-    } else {
-      return NextResponse.json({ error: `未対応モデル: ${model}` }, { status: 400 });
-    }
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send: SendFn = (event, data) => {
+        controller.enqueue(
+          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+        );
+      };
 
-    const result = parsed as { ingredients: string[]; meal: unknown };
-    return NextResponse.json({
-      ingredients: result.ingredients ?? [],
-      meal: result.meal ?? null,
-      rawResponse: raw,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+      try {
+        if (model === "gpt-4o") {
+          if (!process.env.OPENAI_API_KEY) {
+            send("error", { message: "OPENAI_API_KEY が .env.local に設定されていません" });
+            return;
+          }
+          await streamGPT4o(imageDataUrls, send);
+        } else if (model === "gemini-2.5-flash" || model === "gemini-2.5-pro") {
+          if (!process.env.GEMINI_API_KEY) {
+            send("error", { message: "GEMINI_API_KEY が .env.local に設定されていません" });
+            return;
+          }
+          await streamGemini(model, imageDataUrls, send);
+        } else {
+          send("error", { message: `未対応モデル: ${model}` });
+        }
+      } catch (err) {
+        send("error", { message: err instanceof Error ? err.message : String(err) });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
