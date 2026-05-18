@@ -130,6 +130,7 @@ export default function HomePage() {
   const [selectedAppliance, setSelectedAppliance] = useState<string>("pan");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loginPrompt, setLoginPrompt] = useState<{ show: boolean; reason: "favorite" | "limit" }>({ show: false, reason: "favorite" });
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
 
@@ -346,9 +347,14 @@ export default function HomePage() {
             startAlternatives(capturedIngredients, capturedMeal, null);
           }
         } else if (type === "error") {
-          const d = data as { message: string };
-          setError(d.message);
-          setView("upload");
+          const d = data as { message: string; code?: string };
+          if (d.code === "usage_limit_exceeded") {
+            setShowUpgradeModal(true);
+            setView("upload");
+          } else {
+            setError(d.message);
+            setView("upload");
+          }
         }
       });
     } catch (err) {
@@ -443,6 +449,9 @@ export default function HomePage() {
           onLogin={() => setView("login")}
           onClose={() => setLoginPrompt((p) => ({ ...p, show: false }))}
         />
+      )}
+      {showUpgradeModal && (
+        <UpgradeModal onClose={() => setShowUpgradeModal(false)} />
       )}
     </>
   );
@@ -1276,5 +1285,56 @@ function LoginView({ onBack }: { onBack: () => void }) {
       </div>
       </div>
     </main>
+  );
+}
+
+// ─── Upgrade modal ────────────────────────────────────────────────────────────
+
+function UpgradeModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-8">
+      <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl">
+        <div className="text-center mb-5">
+          <p className="text-4xl mb-3">🚀</p>
+          <h3 className="text-lg font-bold text-gray-900 mb-1">
+            今月の利用上限に達しました
+          </h3>
+          <p className="text-sm text-gray-500 leading-relaxed mb-4">
+            Freeプランは月10回まで無料で使えます。<br />
+            Proにアップグレードすると月90回まで使えます。
+          </p>
+
+          {/* プラン比較 */}
+          <div className="flex gap-3 mb-5">
+            <div className="flex-1 bg-gray-50 rounded-2xl p-4 text-left border-2 border-gray-100">
+              <p className="text-xs text-gray-400 font-semibold mb-1">Free</p>
+              <p className="text-2xl font-bold text-gray-800 mb-1">¥0</p>
+              <p className="text-sm text-gray-500">月10回まで</p>
+            </div>
+            <div className="flex-1 bg-orange-50 rounded-2xl p-4 text-left border-2 border-primary">
+              <p className="text-xs text-primary font-semibold mb-1">Pro ✨</p>
+              <p className="text-2xl font-bold text-gray-800 mb-1">¥980<span className="text-sm font-normal text-gray-500">/月</span></p>
+              <p className="text-sm text-gray-600">月90回・回数無制限感覚</p>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            // Stripe Payment Link（後で設定）
+            window.open("https://buy.stripe.com/snapmeal-pro", "_blank");
+          }}
+          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition mb-3"
+        >
+          Proにアップグレード（¥980/月）
+        </button>
+        <button
+          onClick={onClose}
+          className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
+        >
+          来月まで待つ
+        </button>
+      </div>
+    </div>
   );
 }

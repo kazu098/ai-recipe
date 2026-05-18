@@ -7,6 +7,7 @@ import {
   getRecentMealHistory,
   createSession,
   saveMealHistory,
+  checkAndIncrementUsage,
 } from "@/lib/supabase/db";
 import type { MealHistory } from "@/lib/supabase/types";
 
@@ -161,8 +162,20 @@ export async function POST(req: NextRequest) {
       const send: SendFn = (event, data) =>
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
 
-      // ログインユーザーの過去14日履歴を取得（ゲストはスキップ）
+      // ログインユーザーの利用制限チェック + カウントインクリメント
       const userId = await getAuthUserId();
+      if (userId) {
+        const usage = await checkAndIncrementUsage(userId);
+        if (!usage) {
+          send("error", {
+            message: "今月の利用上限に達しました",
+            code: "usage_limit_exceeded",
+          });
+          return;
+        }
+      }
+
+      // 過去14日履歴を取得しプロンプトに注入（ゲストはスキップ）
       const history = userId ? await getRecentMealHistory(userId) : [];
 
       const prompt = buildPrompt(tired_mode, meal_time, history);
