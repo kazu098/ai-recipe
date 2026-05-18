@@ -2,6 +2,13 @@ import { NextRequest } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import { randomUUID } from "crypto";
+import {
+  getAuthUserId,
+  getRecentMealHistory,
+  createSession,
+  saveMealHistory,
+} from "@/lib/supabase/db";
+import type { MealHistory } from "@/lib/supabase/types";
 
 const ALWAYS_AVAILABLE_SEASONINGS = `
 醤油・塩・胡椒・砂糖・みりん・料理酒・酢・サラダ油・ごま油・バター・マヨネーズ・ケチャップ
@@ -9,7 +16,18 @@ const ALWAYS_AVAILABLE_SEASONINGS = `
 ウスターソース・ソース・豆板醤・オイスターソース・生姜（チューブ）・にんにく（チューブ）
 `.trim();
 
-function buildPrompt(tired_mode: boolean, meal_time: string): string {
+function buildHistorySection(history: MealHistory[]): string {
+  if (!history.length) return "";
+  const lines = history
+    .slice(0, 14)
+    .map((h) => `- ${h.meal_name}（${h.genre ?? ""}・${h.main_ingredient ?? ""}・${h.cooking_method ?? ""}）`);
+  return `
+【マンネリ回避】過去14日間に提案済みの料理（これらと異なるジャンル・主食材・調理法を選ぶこと）:
+${lines.join("\n")}
+`;
+}
+
+function buildPrompt(tired_mode: boolean, meal_time: string, history: MealHistory[]): string {
   return `あなたは家庭料理の専門家です。共働き家庭向けに献立を提案してください。
 
 状況:
@@ -19,7 +37,7 @@ function buildPrompt(tired_mode: boolean, meal_time: string): string {
 【絶対条件】
 以下の調味料・基本食材は常に自宅にあるものとして扱ってください:
 ${ALWAYS_AVAILABLE_SEASONINGS}
-
+${buildHistorySection(history)}
 冷蔵庫の写真から食材を認識し（調味料は ingredients に含めない）、今ある食材と上記の常備調味料だけで作れる料理を1案提案してください。
 
 【必須ルール】
@@ -50,7 +68,6 @@ function extractJSON(text: string): string {
   return match ? match[0] : text;
 }
 
-// 食材を1つずつストリームから抽出
 function extractNewIngredients(buffer: string, known: Set<string>): string[] {
   const found: string[] = [];
   const section = buffer.match(/"ingredients"\s*:\s*\[([^\]]*)/);
@@ -144,11 +161,14 @@ export async function POST(req: NextRequest) {
       const send: SendFn = (event, data) =>
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
 
-      const prompt = buildPrompt(tired_mode, meal_time);
+      // ログインユーザーの過去14日履歴を取得（ゲストはスキップ）
+      const userId = await getAuthUserId();
+      const history = userId ? await getRecentMealHistory(userId) : [];
+
+      const prompt = buildPrompt(tired_mode, meal_time, history);
       let fullText = "";
 
       try {
-        // Gemini 2.5 Flash Lite をPrimaryとして使用。失敗時はGPT-4oにフォールバック
         if (process.env.GEMINI_API_KEY) {
           try {
             fullText = await streamWithGemini(imageDataUrls, prompt, send);
@@ -166,11 +186,40 @@ export async function POST(req: NextRequest) {
 
         const parsed = JSON.parse(extractJSON(fullText)) as {
           ingredients: string[];
-          meal: Record<string, unknown>;
+          meal: {
+            name: string;
+            genre: string;
+            main_ingredient: string;
+            cooking_method: string;
+            [key: string]: unknown;
+          };
         };
         parsed.meal.id = randomUUID();
 
+        // ログインユーザーのみ: セッション作成 + 履歴保存
+        let sessionId: string | null = null;
+        if (userId) {
+          sessionId = await createSession({
+            userId,
+            tiredMode: tired_mode,
+            detectedIngredients: parsed.ingredients,
+          });
+          if (sessionId) {
+            await saveMealHistory({
+              userId,
+              sessionId,
+              meals: [{
+                meal_name: parsed.meal.name,
+                genre: parsed.meal.genre,
+                main_ingredient: parsed.meal.main_ingredient,
+                cooking_method: parsed.meal.cooking_method,
+              }],
+            });
+          }
+        }
+
         send("meal", { meal: parsed.meal, ingredients: parsed.ingredients });
+        if (sessionId) send("session", { session_id: sessionId });
         send("done", {});
       } catch (err) {
         send("error", { message: err instanceof Error ? err.message : String(err) });

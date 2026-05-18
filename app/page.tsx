@@ -130,6 +130,7 @@ export default function HomePage() {
   const [selectedAppliance, setSelectedAppliance] = useState<string>("pan");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loginPrompt, setLoginPrompt] = useState<{ show: boolean; reason: "favorite" | "limit" }>({ show: false, reason: "favorite" });
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
 
   const defaultAppliance = (s: UserSettings) =>
@@ -207,6 +208,15 @@ export default function HomePage() {
     setRecipeLoading(true);
     setRecipe(null);
     setView("recipe");
+
+    // was_selected を記録（ログインユーザーのみ）
+    if (sessionId) {
+      fetch(`/api/sessions/${sessionId}/select`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meal_name: meal.name }),
+      }).catch(() => { /* サイレント失敗 */ });
+    }
     try {
       const res = await fetch("/api/recipe", {
         method: "POST",
@@ -233,7 +243,7 @@ export default function HomePage() {
   // ── Phase B: alternatives (background) ─────────────────────────────────────
 
   const startAlternatives = useCallback(
-    async (ingredients: string[], meal1: Meal) => {
+    async (ingredients: string[], meal1: Meal, sid: string | null) => {
       try {
         const res = await fetch("/api/alternatives", {
           method: "POST",
@@ -243,6 +253,7 @@ export default function HomePage() {
             tired_mode: tiredMode,
             meal_1_name: meal1.name,
             meal_1_type: meal1.type,
+            session_id: sid,
           }),
         });
         await readSSE(res, (type, data) => {
@@ -304,6 +315,10 @@ export default function HomePage() {
         }),
       });
 
+      let capturedMeal: Meal | null = null;
+      let capturedIngredients: string[] = [];
+      let capturedSessionId: string | null = null;
+
       await readSSE(res, (type, data) => {
         if (type === "ingredient") {
           const d = data as { item: string };
@@ -311,14 +326,25 @@ export default function HomePage() {
         } else if (type === "meal") {
           const d = data as { meal: Meal; ingredients: string[] };
           const meal = { ...d.meal, missing_ingredients: [] };
+          capturedMeal = meal;
+          capturedIngredients = d.ingredients;
           setMeals([meal]);
           setAllIngredients(d.ingredients);
           setActiveMealIdx(0);
           setView("result");
-          // Phase B をバックグラウンドで開始
-          startAlternatives(d.ingredients, meal);
-        } else if (type === "status") {
-          // フォールバック中などの状態メッセージ（現在は無視）
+        } else if (type === "session") {
+          const d = data as { session_id: string };
+          capturedSessionId = d.session_id;
+          setSessionId(d.session_id);
+          // session_id が揃ったら Phase B 開始
+          if (capturedMeal) {
+            startAlternatives(capturedIngredients, capturedMeal, capturedSessionId);
+          }
+        } else if (type === "done") {
+          // session イベントが来なかった場合（ゲスト）も Phase B を開始
+          if (capturedMeal && !capturedSessionId) {
+            startAlternatives(capturedIngredients, capturedMeal, null);
+          }
         } else if (type === "error") {
           const d = data as { message: string };
           setError(d.message);
