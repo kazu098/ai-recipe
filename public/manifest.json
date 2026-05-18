@@ -1,0 +1,38 @@
+{
+  "name": "Snapmeal",
+  "short_name": "Snapmeal",
+  "description": "冷蔵庫を撮るだけ。30秒で今夜の夕食が決まる。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FEFDF8",
+  "theme_color": "#FF6B35",
+  "orientation": "portrait-primary",
+  "lang": "ja",
+  "categories": ["food", "lifestyle", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
