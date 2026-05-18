@@ -2,6 +2,12 @@ import { NextRequest } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { randomUUID } from "crypto";
 
+const ALWAYS_AVAILABLE_SEASONINGS = `
+醤油・塩・胡椒・砂糖・みりん・料理酒・酢・サラダ油・ごま油・バター・マヨネーズ・ケチャップ
+味噌・だし（和風・コンソメ・鶏がら）・小麦粉・片栗粉・オリーブオイル・めんつゆ・ポン酢
+ウスターソース・ソース・豆板醤・オイスターソース・生姜（チューブ）・にんにく（チューブ）
+`.trim();
+
 function buildPrompt(
   ingredients: string[],
   tired_mode: boolean,
@@ -14,16 +20,25 @@ function buildPrompt(
 
   return `あなたは家庭料理の専門家です。
 
+【絶対条件】
+以下の調味料・基本食材は常に自宅にあるものとして扱ってください:
+${ALWAYS_AVAILABLE_SEASONINGS}
+
 冷蔵庫にある食材:
 ${ingredients.join("、")}
 
 「${meal_1_name}」（${meal_1_type}）は既に提案済みです。
-上記の食材を使って、異なる料理をあと2案提案してください。
+上記の食材と常備調味料だけで作れる料理をあと2案提案してください。
 
 条件:
 - meal_2 の type: "${type2}"
 - meal_3 の type: "${type3}"
 - 「${meal_1_name}」と異なるジャンル・主食材・調理法にすること
+
+【必須ルール】
+- missing_ingredients は必ず空配列 [] にすること
+- 買い物が必要な料理は絶対に提案しないこと
+- 今ある食材と常備調味料だけで完結する料理を選ぶこと
 
 出力はJSONのみ（コードブロック・説明文不要）:
 {
@@ -35,7 +50,7 @@ ${ingredients.join("、")}
       "time_minutes": 数値,
       "difficulty": "easy|medium|hard",
       "matched_ingredients": ["今ある食材1", ...],
-      "missing_ingredients": ["足りない食材（なければ空配列）"],
+      "missing_ingredients": [],
       "genre": "和食|洋食|中華|エスニック",
       "main_ingredient": "肉|魚|卵|野菜|麺|米",
       "cooking_method": "炒め|煮込み|焼き|揚げ|蒸し|サラダ"
@@ -47,7 +62,7 @@ ${ingredients.join("、")}
       "time_minutes": 数値,
       "difficulty": "easy|medium|hard",
       "matched_ingredients": [...],
-      "missing_ingredients": [...],
+      "missing_ingredients": [],
       "genre": "和食|洋食|中華|エスニック",
       "main_ingredient": "肉|魚|卵|野菜|麺|米",
       "cooking_method": "炒め|煮込み|焼き|揚げ|蒸し|サラダ"

@@ -132,7 +132,7 @@ export default function HomePage() {
         await readSSE(res, (type, data) => {
           if (type === "meal") {
             const d = data as { meal: Meal };
-            setMeals((prev) => [...prev, d.meal]);
+            setMeals((prev) => [...prev, { ...d.meal, missing_ingredients: [] }]);
           }
         });
       } catch {
@@ -169,12 +169,13 @@ export default function HomePage() {
           setStreamingIngredients((prev) => [...prev, d.item]);
         } else if (type === "meal") {
           const d = data as { meal: Meal; ingredients: string[] };
-          setMeals([d.meal]);
+          const meal = { ...d.meal, missing_ingredients: [] };
+          setMeals([meal]);
           setAllIngredients(d.ingredients);
           setActiveMealIdx(0);
           setView("result");
           // Phase B をバックグラウンドで開始
-          startAlternatives(d.ingredients, d.meal);
+          startAlternatives(d.ingredients, meal);
         } else if (type === "status") {
           // フォールバック中などの状態メッセージ（現在は無視）
         } else if (type === "error") {

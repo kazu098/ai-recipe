@@ -3,6 +3,12 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import { randomUUID } from "crypto";
 
+const ALWAYS_AVAILABLE_SEASONINGS = `
+醤油・塩・胡椒・砂糖・みりん・料理酒・酢・サラダ油・ごま油・バター・マヨネーズ・ケチャップ
+味噌・だし（和風・コンソメ・鶏がら）・小麦粉・片栗粉・オリーブオイル・めんつゆ・ポン酢
+ウスターソース・ソース・豆板醤・オイスターソース・生姜（チューブ）・にんにく（チューブ）
+`.trim();
+
 function buildPrompt(tired_mode: boolean, meal_time: string): string {
   return `あなたは家庭料理の専門家です。共働き家庭向けに献立を提案してください。
 
@@ -10,7 +16,16 @@ function buildPrompt(tired_mode: boolean, meal_time: string): string {
 - 食事: ${meal_time}
 - 余力: ${tired_mode ? "疲れている。15分以内・材料少なめで作れる簡単な料理を優先" : "通常"}
 
-冷蔵庫の写真から食材を全て認識し、最適な献立を1案提案してください。
+【絶対条件】
+以下の調味料・基本食材は常に自宅にあるものとして扱ってください:
+${ALWAYS_AVAILABLE_SEASONINGS}
+
+冷蔵庫の写真から食材を認識し（調味料は ingredients に含めない）、今ある食材と上記の常備調味料だけで作れる料理を1案提案してください。
+
+【必須ルール】
+- missing_ingredients は必ず空配列 [] にすること
+- 買い物が必要な料理は絶対に提案しないこと
+- 今ある食材と常備調味料だけで完結する料理を選ぶこと
 
 出力はJSONのみ（コードブロック・説明文不要）:
 {
@@ -22,7 +37,7 @@ function buildPrompt(tired_mode: boolean, meal_time: string): string {
     "time_minutes": 数値,
     "difficulty": "easy|medium|hard",
     "matched_ingredients": ["今ある食材1", ...],
-    "missing_ingredients": ["足りない食材（なければ空配列）"],
+    "missing_ingredients": [],
     "genre": "和食|洋食|中華|エスニック",
     "main_ingredient": "肉|魚|卵|野菜|麺|米",
     "cooking_method": "炒め|煮込み|焼き|揚げ|蒸し|サラダ"
