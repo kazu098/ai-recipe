@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AppView = "upload" | "analyzing" | "result";
+type AppView = "onboarding" | "upload" | "analyzing" | "result" | "recipe";
 type AnalyzingPhase = "scanning" | "generating";
 
 type Meal = {
@@ -22,6 +22,23 @@ type Meal = {
 };
 
 type ImageItem = { file: File; dataUrl: string };
+
+type UserSettings = {
+  servings: number;
+  appliances: string[];
+  ng_foods: string;
+};
+
+type RecipeIngredient = { name: string; amount: string };
+type RecipeData = {
+  title: string;
+  servings: number;
+  ingredients: RecipeIngredient[];
+  seasonings: RecipeIngredient[];
+  steps: string[];
+  hotcook_menu?: string[];
+  tips?: string;
+};
 
 const MAX_IMAGES = 5;
 const DIFFICULTY_LABEL = { easy: "かんたん", medium: "普通", hard: "本格" } as const;
@@ -84,6 +101,8 @@ async function readSSE(
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function HomePage() {
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settings, setSettings] = useState<UserSettings | null>(null);
   const [view, setView] = useState<AppView>("upload");
   const [images, setImages] = useState<ImageItem[]>([]);
   const [tiredMode, setTiredMode] = useState(false);
@@ -93,7 +112,22 @@ export default function HomePage() {
   const [allIngredients, setAllIngredients] = useState<string[]>([]);
   const [activeMealIdx, setActiveMealIdx] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [recipe, setRecipe] = useState<RecipeData | null>(null);
+  const [recipeLoading, setRecipeLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("snapmeal_settings");
+      if (stored) {
+        setSettings(JSON.parse(stored));
+      } else {
+        setView("onboarding");
+      }
+    } finally {
+      setSettingsLoaded(true);
+    }
+  }, []);
 
   // ── Image handling ──────────────────────────────────────────────────────────
 
@@ -113,6 +147,43 @@ export default function HomePage() {
 
   const removeImage = (idx: number) =>
     setImages((prev) => prev.filter((_, i) => i !== idx));
+
+  // ── Settings ────────────────────────────────────────────────────────────────
+
+  const saveSettings = useCallback((s: UserSettings) => {
+    localStorage.setItem("snapmeal_settings", JSON.stringify(s));
+    setSettings(s);
+    setView("upload");
+  }, []);
+
+  // ── Recipe (Phase C) ────────────────────────────────────────────────────────
+
+  const fetchRecipe = useCallback(async (meal: Meal) => {
+    setRecipeLoading(true);
+    setRecipe(null);
+    setView("recipe");
+    try {
+      const res = await fetch("/api/recipe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mealName: meal.name,
+          matchedIngredients: meal.matched_ingredients,
+          genre: meal.genre,
+          cookingMethod: meal.cooking_method,
+          servings: settings?.servings ?? 2,
+          appliances: settings?.appliances ?? [],
+          ngFoods: settings?.ng_foods ?? "",
+        }),
+      });
+      const data: RecipeData = await res.json();
+      setRecipe(data);
+    } catch {
+      setView("result");
+    } finally {
+      setRecipeLoading(false);
+    }
+  }, [settings]);
 
   // ── Phase B: alternatives (background) ─────────────────────────────────────
 
@@ -192,6 +263,12 @@ export default function HomePage() {
 
   // ── Rendering ───────────────────────────────────────────────────────────────
 
+  if (!settingsLoaded) return null;
+
+  if (view === "onboarding") {
+    return <OnboardingView onComplete={saveSettings} />;
+  }
+
   if (view === "analyzing") {
     return (
       <AnalyzingView
@@ -208,6 +285,17 @@ export default function HomePage() {
         activeMealIdx={activeMealIdx}
         onChangeIdx={setActiveMealIdx}
         onBack={() => setView("upload")}
+        onSelectMeal={fetchRecipe}
+      />
+    );
+  }
+
+  if (view === "recipe") {
+    return (
+      <RecipeView
+        recipe={recipe}
+        loading={recipeLoading}
+        onBack={() => setView("result")}
       />
     );
   }
@@ -223,6 +311,143 @@ export default function HomePage() {
       onToggleTired={() => setTiredMode((v) => !v)}
       onAnalyze={startAnalysis}
     />
+  );
+}
+
+// ─── Onboarding view ──────────────────────────────────────────────────────────
+
+const APPLIANCE_OPTIONS = [
+  { id: "hotcook", label: "ホットクック", icon: "🥘" },
+  { id: "pan", label: "フライパン・鍋", icon: "🍳" },
+  { id: "microwave", label: "電子レンジ", icon: "📦" },
+  { id: "oven", label: "オーブン・グリル", icon: "🔥" },
+];
+
+function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void }) {
+  const [step, setStep] = useState(1);
+  const [servings, setServings] = useState(2);
+  const [appliances, setAppliances] = useState<string[]>(["pan"]);
+  const [ngFoods, setNgFoods] = useState("");
+
+  const toggleAppliance = (id: string) =>
+    setAppliances((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+
+  return (
+    <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto px-4 py-10">
+      <div className="mb-8 text-center">
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Snapmeal へようこそ</h1>
+        <p className="text-sm text-gray-500">簡単な設定をしてください（1分で完了）</p>
+      </div>
+
+      {/* Step indicator */}
+      <div className="flex gap-2 justify-center mb-10">
+        {[1, 2, 3].map((s) => (
+          <div
+            key={s}
+            className={`h-1.5 rounded-full transition-all duration-300 ${
+              s <= step ? "w-8 bg-primary" : "w-4 bg-gray-200"
+            }`}
+          />
+        ))}
+      </div>
+
+      {step === 1 && (
+        <div className="flex-1 flex flex-col">
+          <p className="text-lg font-semibold text-gray-800 mb-6">何人分で作りますか？</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[1, 2, 3, 4].map((n) => (
+              <button
+                key={n}
+                onClick={() => setServings(n)}
+                className={`py-6 rounded-2xl text-xl font-bold transition ${
+                  servings === n
+                    ? "bg-primary text-white shadow-lg shadow-orange-200"
+                    : "bg-white border-2 border-gray-100 text-gray-700 hover:border-primary"
+                }`}
+              >
+                {n === 4 ? "4人以上" : `${n}人`}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setStep(2)}
+            className="w-full mt-auto pt-8 bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-orange-200 hover:opacity-90 transition"
+          >
+            次へ →
+          </button>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="flex-1 flex flex-col">
+          <p className="text-lg font-semibold text-gray-800 mb-2">お持ちの調理器具は？</p>
+          <p className="text-sm text-gray-400 mb-6">複数選択できます</p>
+          <div className="space-y-3">
+            {APPLIANCE_OPTIONS.map(({ id, label, icon }) => (
+              <button
+                key={id}
+                onClick={() => toggleAppliance(id)}
+                className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition ${
+                  appliances.includes(id)
+                    ? "border-primary bg-orange-50"
+                    : "border-gray-100 bg-white hover:border-gray-200"
+                }`}
+              >
+                <span className="text-2xl">{icon}</span>
+                <span className="font-semibold text-gray-800">{label}</span>
+                {appliances.includes(id) && (
+                  <span className="ml-auto text-primary font-bold">✓</span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-3 mt-auto pt-8">
+            <button
+              onClick={() => setStep(1)}
+              className="flex-1 py-4 rounded-2xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
+            >
+              ← 戻る
+            </button>
+            <button
+              onClick={() => setStep(3)}
+              className="flex-1 py-4 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-orange-200 hover:opacity-90 transition"
+            >
+              次へ →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="flex-1 flex flex-col">
+          <p className="text-lg font-semibold text-gray-800 mb-1">アレルギーや苦手な食材は？</p>
+          <p className="text-sm text-gray-400 mb-6">任意 · スキップしても大丈夫です</p>
+          <textarea
+            value={ngFoods}
+            onChange={(e) => setNgFoods(e.target.value)}
+            placeholder="例: 卵、えび、落花生"
+            className="w-full border-2 border-gray-100 rounded-2xl p-4 text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary resize-none bg-white"
+            rows={3}
+          />
+          <div className="flex gap-3 mt-auto pt-8">
+            <button
+              onClick={() => setStep(2)}
+              className="flex-1 py-4 rounded-2xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
+            >
+              ← 戻る
+            </button>
+            <button
+              onClick={() => onComplete({ servings, appliances, ng_foods: ngFoods })}
+              className="flex-1 py-4 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-orange-200 hover:opacity-90 transition"
+            >
+              設定完了
+            </button>
+          </div>
+        </div>
+      )}
+    </main>
   );
 }
 
@@ -392,6 +617,121 @@ function AnalyzingView({
   );
 }
 
+// ─── Recipe view ──────────────────────────────────────────────────────────────
+
+function RecipeView({
+  recipe,
+  loading,
+  onBack,
+}: {
+  recipe: RecipeData | null;
+  loading: boolean;
+  onBack: () => void;
+}) {
+  return (
+    <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 bg-white">
+        <button onClick={onBack} className="text-gray-500 text-lg p-1">←</button>
+        <h2 className="font-bold text-gray-800 text-lg truncate">
+          {loading ? "レシピを生成中..." : (recipe?.title ?? "レシピ")}
+        </h2>
+      </div>
+
+      {loading ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-gray-500 text-sm">レシピを考えています...</p>
+        </div>
+      ) : recipe ? (
+        <>
+          <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
+            <p className="text-sm text-gray-400">{recipe.servings}人分</p>
+
+            {/* Ingredients */}
+            <div className="bg-white rounded-2xl p-4 border border-gray-100">
+              <p className="font-semibold text-gray-800 mb-3">材料</p>
+              <div className="space-y-2">
+                {recipe.ingredients.map((item, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span className="text-gray-700">{item.name}</span>
+                    <span className="text-gray-400">{item.amount}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Seasonings */}
+            {recipe.seasonings?.length > 0 && (
+              <div className="bg-white rounded-2xl p-4 border border-gray-100">
+                <p className="font-semibold text-gray-800 mb-3">調味料</p>
+                <div className="space-y-2">
+                  {recipe.seasonings.map((item, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className="text-gray-700">{item.name}</span>
+                      <span className="text-gray-400">{item.amount}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Hotcook menu */}
+            {recipe.hotcook_menu && recipe.hotcook_menu.length > 0 && (
+              <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
+                <p className="font-semibold text-orange-700 mb-3">🥘 ホットクック操作</p>
+                <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                  {recipe.hotcook_menu.map((step, i) => (
+                    <span key={i} className="flex items-center gap-1.5">
+                      <span className="bg-white border border-orange-200 text-orange-700 px-2.5 py-1 rounded-lg font-medium whitespace-nowrap">
+                        {step}
+                      </span>
+                      {i < recipe.hotcook_menu!.length - 1 && (
+                        <span className="text-orange-300">→</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Steps */}
+            <div className="bg-white rounded-2xl p-4 border border-gray-100">
+              <p className="font-semibold text-gray-800 mb-4">作り方</p>
+              <div className="space-y-4">
+                {recipe.steps.map((step, i) => (
+                  <div key={i} className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">
+                      {i + 1}
+                    </span>
+                    <p className="text-sm text-gray-700 leading-relaxed">{step}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Tips */}
+            {recipe.tips && (
+              <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
+                <p className="text-sm text-gray-700">💡 {recipe.tips}</p>
+              </div>
+            )}
+
+            <p className="text-xs text-gray-400 text-center pb-2">
+              ⚠️ 食材の鮮度・賞味期限はご自身でご確認ください
+            </p>
+          </div>
+
+          <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100">
+            <button className="w-full bg-accent text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-200 hover:opacity-90 transition">
+              👍 作った！
+            </button>
+          </div>
+        </>
+      ) : null}
+    </main>
+  );
+}
+
 // ─── Result view ──────────────────────────────────────────────────────────────
 
 function ResultView({
@@ -399,11 +739,13 @@ function ResultView({
   activeMealIdx,
   onChangeIdx,
   onBack,
+  onSelectMeal,
 }: {
   meals: Meal[];
   activeMealIdx: number;
   onChangeIdx: (idx: number) => void;
   onBack: () => void;
+  onSelectMeal: (meal: Meal) => void;
 }) {
   const meal = meals[activeMealIdx];
   if (!meal) return null;
@@ -476,7 +818,10 @@ function ResultView({
           })}
         </div>
 
-        <button className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition">
+        <button
+          onClick={() => onSelectMeal(meal)}
+          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition"
+        >
           この献立で作る
         </button>
 
