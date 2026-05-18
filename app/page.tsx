@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AppView = "onboarding" | "upload" | "analyzing" | "result" | "recipe";
+type AppView = "onboarding" | "upload" | "analyzing" | "result" | "recipe" | "settings";
 type AnalyzingPhase = "scanning" | "generating";
 
 type Meal = {
@@ -114,13 +114,19 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [recipe, setRecipe] = useState<RecipeData | null>(null);
   const [recipeLoading, setRecipeLoading] = useState(false);
+  const [selectedAppliance, setSelectedAppliance] = useState<string>("pan");
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+
+  const defaultAppliance = (s: UserSettings) =>
+    s.appliances.includes("hotcook") ? "hotcook" : (s.appliances[0] ?? "pan");
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem("snapmeal_settings");
       if (stored) {
-        setSettings(JSON.parse(stored));
+        const s: UserSettings = JSON.parse(stored);
+        setSettings(s);
+        setSelectedAppliance(defaultAppliance(s));
       } else {
         setView("onboarding");
       }
@@ -153,6 +159,7 @@ export default function HomePage() {
   const saveSettings = useCallback((s: UserSettings) => {
     localStorage.setItem("snapmeal_settings", JSON.stringify(s));
     setSettings(s);
+    setSelectedAppliance(defaultAppliance(s));
     setView("upload");
   }, []);
 
@@ -172,7 +179,7 @@ export default function HomePage() {
           genre: meal.genre,
           cookingMethod: meal.cooking_method,
           servings: settings?.servings ?? 2,
-          appliances: settings?.appliances ?? [],
+          appliances: [selectedAppliance],
           ngFoods: settings?.ng_foods ?? "",
         }),
       });
@@ -183,7 +190,7 @@ export default function HomePage() {
     } finally {
       setRecipeLoading(false);
     }
-  }, [settings]);
+  }, [settings, selectedAppliance]);
 
   // ── Phase B: alternatives (background) ─────────────────────────────────────
 
@@ -269,6 +276,16 @@ export default function HomePage() {
     return <OnboardingView onComplete={saveSettings} />;
   }
 
+  if (view === "settings") {
+    return (
+      <SettingsView
+        current={settings ?? { servings: 2, appliances: ["pan"], ng_foods: "" }}
+        onSave={(s) => { saveSettings(s); setView("upload"); }}
+        onBack={() => setView("upload")}
+      />
+    );
+  }
+
   if (view === "analyzing") {
     return (
       <AnalyzingView
@@ -304,12 +321,16 @@ export default function HomePage() {
     <UploadView
       images={images}
       tiredMode={tiredMode}
+      ownedAppliances={settings?.appliances ?? []}
+      selectedAppliance={selectedAppliance}
       error={error}
       fileInputRef={fileInputRef}
       onAddFiles={addFiles}
       onRemoveImage={removeImage}
       onToggleTired={() => setTiredMode((v) => !v)}
+      onChangeAppliance={setSelectedAppliance}
       onAnalyze={startAnalysis}
+      onOpenSettings={() => setView("settings")}
     />
   );
 }
@@ -451,32 +472,152 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
   );
 }
 
+// ─── Settings view ────────────────────────────────────────────────────────────
+
+function SettingsView({
+  current,
+  onSave,
+  onBack,
+}: {
+  current: UserSettings;
+  onSave: (s: UserSettings) => void;
+  onBack: () => void;
+}) {
+  const [servings, setServings] = useState(current.servings);
+  const [appliances, setAppliances] = useState<string[]>(current.appliances);
+  const [ngFoods, setNgFoods] = useState(current.ng_foods);
+
+  const toggleAppliance = (id: string) =>
+    setAppliances((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+
+  return (
+    <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 bg-white">
+        <button onClick={onBack} className="text-gray-500 text-lg p-1">←</button>
+        <h2 className="font-bold text-gray-800 text-lg">設定</h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-8">
+        {/* Servings */}
+        <div>
+          <p className="text-sm font-semibold text-gray-700 mb-3">何人分で作りますか？</p>
+          <div className="grid grid-cols-4 gap-2">
+            {[1, 2, 3, 4].map((n) => (
+              <button
+                key={n}
+                onClick={() => setServings(n)}
+                className={`py-3 rounded-xl font-bold transition text-sm ${
+                  servings === n
+                    ? "bg-primary text-white shadow-md shadow-orange-200"
+                    : "bg-white border-2 border-gray-100 text-gray-700 hover:border-primary"
+                }`}
+              >
+                {n === 4 ? "4人以上" : `${n}人`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Appliances */}
+        <div>
+          <p className="text-sm font-semibold text-gray-700 mb-3">お持ちの調理器具</p>
+          <div className="space-y-2">
+            {APPLIANCE_OPTIONS.map(({ id, label, icon }) => (
+              <button
+                key={id}
+                onClick={() => toggleAppliance(id)}
+                className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition ${
+                  appliances.includes(id)
+                    ? "border-primary bg-orange-50"
+                    : "border-gray-100 bg-white hover:border-gray-200"
+                }`}
+              >
+                <span className="text-xl">{icon}</span>
+                <span className="font-semibold text-gray-800 text-sm">{label}</span>
+                {appliances.includes(id) && (
+                  <span className="ml-auto text-primary font-bold">✓</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* NG foods */}
+        <div>
+          <p className="text-sm font-semibold text-gray-700 mb-1">アレルギー・苦手な食材</p>
+          <p className="text-xs text-gray-400 mb-3">任意</p>
+          <textarea
+            value={ngFoods}
+            onChange={(e) => setNgFoods(e.target.value)}
+            placeholder="例: 卵、えび、落花生"
+            className="w-full border-2 border-gray-100 rounded-2xl p-4 text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary resize-none bg-white text-sm"
+            rows={3}
+          />
+        </div>
+      </div>
+
+      <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100">
+        <button
+          onClick={() => onSave({ servings, appliances, ng_foods: ngFoods })}
+          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition"
+        >
+          保存する
+        </button>
+      </div>
+    </main>
+  );
+}
+
 // ─── Upload view ──────────────────────────────────────────────────────────────
+
+const APPLIANCE_LABELS: Record<string, { label: string; icon: string }> = {
+  hotcook: { label: "ホットクック", icon: "🥘" },
+  pan: { label: "フライパン", icon: "🍳" },
+  microwave: { label: "レンジ", icon: "📦" },
+  oven: { label: "オーブン", icon: "🔥" },
+};
 
 function UploadView({
   images,
   tiredMode,
+  ownedAppliances,
+  selectedAppliance,
   error,
   fileInputRef,
   onAddFiles,
   onRemoveImage,
   onToggleTired,
+  onChangeAppliance,
   onAnalyze,
+  onOpenSettings,
 }: {
   images: ImageItem[];
   tiredMode: boolean;
+  ownedAppliances: string[];
+  selectedAppliance: string;
   error: string | null;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onAddFiles: (files: FileList | File[]) => void;
   onRemoveImage: (idx: number) => void;
   onToggleTired: () => void;
+  onChangeAppliance: (a: string) => void;
   onAnalyze: () => void;
+  onOpenSettings: () => void;
 }) {
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto px-4 py-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Snapmeal</h1>
+        <button
+          onClick={onOpenSettings}
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition text-gray-500 text-xl"
+          aria-label="設定"
+        >
+          ⚙️
+        </button>
       </div>
 
       {/* Greeting */}
@@ -542,7 +683,7 @@ function UploadView({
       </p>
 
       {/* Tired mode toggle */}
-      <div className="bg-white rounded-2xl p-4 mb-6 border border-gray-100">
+      <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
         <p className="text-sm font-semibold text-gray-700 mb-3">今日の余力は？</p>
         <div className="flex gap-2">
           <button
@@ -567,6 +708,33 @@ function UploadView({
           </button>
         </div>
       </div>
+
+      {/* Appliance selector (only when user owns multiple) */}
+      {ownedAppliances.length <= 1 && <div className="mb-2" />}
+      {ownedAppliances.length > 1 && (
+        <div className="bg-white rounded-2xl p-4 mb-6 border border-gray-100">
+          <p className="text-sm font-semibold text-gray-700 mb-3">今日使う調理器具は？</p>
+          <div className="flex gap-2 flex-wrap">
+            {ownedAppliances.map((id) => {
+              const label = APPLIANCE_LABELS[id] ?? { label: id, icon: "🍴" };
+              return (
+                <button
+                  key={id}
+                  onClick={() => onChangeAppliance(id)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition ${
+                    selectedAppliance === id
+                      ? "bg-primary text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  <span>{label.icon}</span>
+                  <span>{label.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Analyze button */}
       <button
