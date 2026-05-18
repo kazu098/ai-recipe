@@ -54,13 +54,22 @@ async function streamGPT4o(imageDataUrls: string[], send: SendFn) {
   send("done", { ingredients: parsed.ingredients ?? [], meal: parsed.meal ?? null, rawResponse: fullText });
 }
 
+type GeminiModelId = "gemini-2.5-pro" | "gemini-2.5-flash" | "gemini-2.5-flash-no-think" | "gemini-2.5-flash-lite";
+
 async function streamGemini(
-  model: "gemini-2.5-pro" | "gemini-2.5-flash",
+  model: GeminiModelId,
   imageDataUrls: string[],
   send: SendFn
 ) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
-  const geminiModel = genAI.getGenerativeModel({ model });
+
+  const noThink = model === "gemini-2.5-flash-no-think";
+  const modelId = noThink ? "gemini-2.5-flash" : model;
+
+  const geminiModel = genAI.getGenerativeModel({
+    model: modelId,
+    ...(noThink && { generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as never }),
+  });
 
   const imageParts = imageDataUrls.map((dataUrl) => ({
     inlineData: {
@@ -114,12 +123,12 @@ export async function POST(req: NextRequest) {
             return;
           }
           await streamGPT4o(imageDataUrls, send);
-        } else if (model === "gemini-2.5-flash" || model === "gemini-2.5-pro") {
+        } else if (["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-no-think", "gemini-2.5-flash-lite"].includes(model)) {
           if (!process.env.GEMINI_API_KEY) {
             send("error", { message: "GEMINI_API_KEY が .env.local に設定されていません" });
             return;
           }
-          await streamGemini(model, imageDataUrls, send);
+          await streamGemini(model as GeminiModelId, imageDataUrls, send);
         } else {
           send("error", { message: `未対応モデル: ${model}` });
         }

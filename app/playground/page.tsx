@@ -30,8 +30,9 @@ type ModelResult = {
 
 const MODELS: Pick<ModelResult, "model" | "label" | "costPerSession">[] = [
   { model: "gpt-4o", label: "GPT-4o", costPerSession: "~$0.068" },
-  { model: "gemini-2.5-pro", label: "Gemini 2.5 Pro", costPerSession: "~$0.051" },
-  { model: "gemini-2.5-flash", label: "Gemini 2.5 Flash ⭐", costPerSession: "~$0.017" },
+  { model: "gemini-2.5-flash", label: "Gemini 2.5 Flash（Thinking ON）", costPerSession: "~$0.017" },
+  { model: "gemini-2.5-flash-no-think", label: "Gemini 2.5 Flash（Thinking OFF）⭐", costPerSession: "~$0.017" },
+  { model: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite", costPerSession: "~$0.005" },
 ];
 
 const MAX_IMAGES = 5;
