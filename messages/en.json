@@ -13,7 +13,7 @@
     "next": "Next →",
     "back": "← Back",
     "complete": "Done",
-    "hotcook": "Hotcook",
+    "hotcook": "Smart Cooker",
     "pan": "Pan & Pot",
     "microwave": "Microwave",
     "oven": "Oven & Grill"
@@ -31,7 +31,7 @@
     "logout": "Log out",
     "language": "言語 / Language",
     "lang_ja": "日本語",
-    "hotcook": "Hotcook",
+    "hotcook": "Smart Cooker",
     "pan": "Pan & Pot",
     "microwave": "Microwave",
     "oven": "Oven & Grill"
@@ -53,7 +53,7 @@
     "request_q": "Request (optional)",
     "request_placeholder": "e.g. I want curry, use the cabbage...",
     "analyze": "Analyze",
-    "hotcook": "Hotcook",
+    "hotcook": "Smart Cooker",
     "pan": "Pan",
     "microwave": "Microwave",
     "oven": "Oven"
@@ -81,7 +81,7 @@
     "servings": "{count} servings",
     "ingredients": "Ingredients",
     "seasonings": "Seasonings",
-    "hotcook": "🥘 Hotcook Steps",
+    "hotcook": "🥘 Smart Cooker Steps",
     "steps": "Instructions",
     "thinking": "Thinking about your recipe...",
     "made_it": "👍 Made it!",
