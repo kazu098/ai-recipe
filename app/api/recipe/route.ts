@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-type SubDish = { name: string; matched_ingredients: string[] };
+type SubDish = { name: string; matched_ingredients: string[]; label?: string };
 
 function buildPrompt(
   mealName: string,
@@ -11,21 +11,23 @@ function buildPrompt(
   servings: number,
   appliances: string[],
   ngFoods: string,
-  fukusai: SubDish | null,
-  shirumono: SubDish | null
+  side: SubDish | null,
+  soup: SubDish | null
 ): string {
   const hasHotcook = appliances.includes("hotcook");
   const ngLine = ngFoods ? `使用禁止食材（アレルギー等）: ${ngFoods}` : "";
+  const sideLabel = side?.label ?? "サイドディッシュ";
+  const soupLabel = soup?.label ?? "スープ";
 
   const subDishSchema = [
-    fukusai ? `  "fukusai_recipe": {
-    "title": "${fukusai.name}",
+    side ? `  "side_recipe": {
+    "title": "${side.name}",
     "ingredients": [{"name": "食材名", "amount": "分量"}],
     "seasonings": [{"name": "調味料名", "amount": "分量"}],
     "steps": ["手順1", "手順2"]
   }` : null,
-    shirumono ? `  "shirumono_recipe": {
-    "title": "${shirumono.name}",
+    soup ? `  "soup_recipe": {
+    "title": "${soup.name}",
     "ingredients": [{"name": "食材名", "amount": "分量"}],
     "seasonings": [{"name": "調味料名", "amount": "分量"}],
     "steps": ["手順1", "手順2"]
@@ -33,13 +35,13 @@ function buildPrompt(
   ].filter(Boolean).join(",\n");
 
   const subDishRequest = [
-    fukusai ? `【副菜】${fukusai.name}（使用食材: ${fukusai.matched_ingredients.join("、") || "適量"}）の簡単なレシピも生成してください。` : "",
-    shirumono ? `【汁物】${shirumono.name}（使用食材: ${shirumono.matched_ingredients.join("、") || "適量"}）の簡単なレシピも生成してください。` : "",
+    side ? `【${sideLabel}】${side.name}（使用食材: ${side.matched_ingredients.join("、") || "適量"}）の簡単なレシピも生成してください。` : "",
+    soup ? `【${soupLabel}】${soup.name}（使用食材: ${soup.matched_ingredients.join("、") || "適量"}）の簡単なレシピも生成してください。` : "",
   ].filter(Boolean).join("\n");
 
   return `あなたは家庭料理の専門家です。以下の献立の詳細レシピを${servings}人分で作成してください。
 
-【主菜】
+【メイン】
 料理名: ${mealName}
 使用する主な食材: ${matchedIngredients.join("、") || "適量"}
 ジャンル: ${genre}
@@ -68,8 +70,8 @@ ${subDishRequest}
 }
 
 ingredientsには調味料以外の食材のみ記載し、seasoningsに調味料・たれ・油類を記載してください。
-副菜・汁物のレシピは steps を3〜4ステップ程度の簡潔な内容にしてください。
-${hasHotcook ? `ホットクックを持っているユーザーです。主菜がホットクックで作れる場合はhotcook_menuにメニュー操作手順を記載してください。` : ""}`;
+サブ料理のレシピは steps を3〜4ステップ程度の簡潔な内容にしてください。
+${hasHotcook ? `ホットクックを持っているユーザーです。メインがホットクックで作れる場合はhotcook_menuにメニュー操作手順を記載してください。` : ""}`;
 }
 
 function extractJSON(text: string): string {
@@ -86,8 +88,8 @@ export async function POST(req: NextRequest) {
     servings = 2,
     appliances = [],
     ngFoods = "",
-    fukusai = null,
-    shirumono = null,
+    side = null,
+    soup = null,
   } = await req.json();
 
   if (!mealName) {
@@ -115,8 +117,8 @@ export async function POST(req: NextRequest) {
       servings,
       appliances,
       ngFoods,
-      fukusai,
-      shirumono
+      side,
+      soup
     );
 
     const result = await model.generateContent(prompt);

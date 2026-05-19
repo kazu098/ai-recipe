@@ -11,6 +11,8 @@ import {
 } from "@/lib/supabase/db";
 import type { MealHistory } from "@/lib/supabase/types";
 
+type ActiveComp = { role: string; label: string };
+
 const ALWAYS_AVAILABLE_SEASONINGS = `
 醤油・塩・胡椒・砂糖・みりん・料理酒・酢・サラダ油・ごま油・バター・マヨネーズ・ケチャップ
 味噌・だし（和風・コンソメ・鶏がら）・小麦粉・片栗粉・オリーブオイル・めんつゆ・ポン酢
@@ -28,13 +30,15 @@ ${lines.join("\n")}
 `;
 }
 
-function buildSubDishSection(components: string[]): string {
+function buildSubDishSection(components: ActiveComp[]): string {
   const parts: string[] = [];
-  if (components.includes("副菜")) {
-    parts.push(`    "fukusai": { "name": "副菜名", "matched_ingredients": ["使う食材1", ...] }`);
+  const side = components.find((c) => c.role === "side");
+  const soup = components.find((c) => c.role === "soup");
+  if (side) {
+    parts.push(`    "side": { "name": "${side.label}名", "matched_ingredients": ["使う食材1", ...] }`);
   }
-  if (components.includes("汁物")) {
-    parts.push(`    "shirumono": { "name": "汁物名", "matched_ingredients": ["使う食材1", ...] }`);
+  if (soup) {
+    parts.push(`    "soup": { "name": "${soup.label}名", "matched_ingredients": ["使う食材1", ...] }`);
   }
   return parts.length ? ",\n" + parts.join(",\n") : "";
 }
@@ -43,13 +47,16 @@ function buildPrompt(
   tired_mode: boolean,
   meal_time: string,
   history: MealHistory[],
-  meal_components: string[]
+  meal_components: ActiveComp[]
 ): string {
-  const needsFukusai = meal_components.includes("副菜");
-  const needsShirumono = meal_components.includes("汁物");
+  const mainComp = meal_components.find((c) => c.role === "main");
+  const sideComp = meal_components.find((c) => c.role === "side");
+  const soupComp = meal_components.find((c) => c.role === "soup");
+  const mainLabel = mainComp?.label ?? "メイン";
+
   const componentNote = [
-    needsFukusai ? "副菜（小鉢1品）" : "",
-    needsShirumono ? "汁物（味噌汁・スープ等）" : "",
+    sideComp ? `${sideComp.label}（小鉢1品）` : "",
+    soupComp ? `${soupComp.label}（スープ・汁物等）` : "",
   ].filter(Boolean).join("と");
 
   return `あなたは家庭料理の専門家です。共働き家庭向けに献立を提案してください。
@@ -57,7 +64,7 @@ function buildPrompt(
 状況:
 - 食事: ${meal_time}
 - 余力: ${tired_mode ? "疲れている。15分以内・材料少なめで作れる簡単な料理を優先" : "通常"}
-- 献立構成: 主菜${componentNote ? `・${componentNote}` : "のみ"}
+- 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
 
 【絶対条件】
 以下の調味料・基本食材は常に自宅にあるものとして扱ってください:
@@ -69,15 +76,15 @@ ${buildHistorySection(history)}
 - missing_ingredients は必ず空配列 [] にすること
 - 買い物が必要な料理は絶対に提案しないこと
 - 今ある食材と常備調味料だけで完結すること
-${needsFukusai || needsShirumono ? `- 主菜と副菜・汁物は食材が重複しすぎないよう、バランスよく選ぶこと` : ""}
+${sideComp || soupComp ? `- メインとサブ料理は食材が重複しすぎないよう、バランスよく選ぶこと` : ""}
 
 出力はJSONのみ（コードブロック・説明文不要）:
 {
   "ingredients": ["食材1", "食材2", ...],
   "meal": {
     "type": "${tired_mode ? "quick" : "best"}",
-    "name": "主菜名",
-    "reason": "なぜこの主菜か（1文・30字以内）",
+    "name": "${mainLabel}名",
+    "reason": "なぜこのメインか（1文・30字以内）",
     "time_minutes": 数値,
     "difficulty": "easy|medium|hard",
     "matched_ingredients": ["今ある食材1", ...],
@@ -179,7 +186,7 @@ export async function POST(req: NextRequest) {
     imageDataUrls,
     tired_mode = false,
     meal_time = "夕食",
-    meal_components = ["主菜"],
+    meal_components = [{ role: "main", label: "メイン" }],
   } = await req.json();
 
   if (!imageDataUrls?.length) {
@@ -192,7 +199,6 @@ export async function POST(req: NextRequest) {
       const send: SendFn = (event, data) =>
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
 
-      // ログインユーザーの利用制限チェック + カウントインクリメント
       const userId = await getAuthUserId();
       if (userId) {
         const usage = await checkAndIncrementUsage(userId);
@@ -205,10 +211,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 過去14日履歴を取得しプロンプトに注入（ゲストはスキップ）
       const history = userId ? await getRecentMealHistory(userId) : [];
-
-      const prompt = buildPrompt(tired_mode, meal_time, history, meal_components);
+      const prompt = buildPrompt(tired_mode, meal_time, history, meal_components as ActiveComp[]);
       let fullText = "";
 
       try {
@@ -239,7 +243,6 @@ export async function POST(req: NextRequest) {
         };
         parsed.meal.id = randomUUID();
 
-        // ログインユーザーのみ: セッション作成 + 履歴保存
         let sessionId: string | null = null;
         if (userId) {
           sessionId = await createSession({
