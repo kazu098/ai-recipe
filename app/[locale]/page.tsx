@@ -837,21 +837,18 @@ function UploadView({
 
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
-      <div className="bg-primary-dark px-4 pt-6 pb-8">
-        <div className="flex items-center justify-between mb-3">
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Snapmeal</h1>
-          <button
-            onClick={onOpenSettings}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white"
-            aria-label="Settings"
-          >
-            <Settings size={20} />
-          </button>
-        </div>
-        <p className="text-base font-semibold text-white">{t("greeting")}</p>
+      <div className="bg-primary-dark px-4 py-3 flex items-center justify-between">
+        <h1 className="text-xl font-extrabold text-white tracking-tight">Snapmeal</h1>
+        <button
+          onClick={onOpenSettings}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white"
+          aria-label="Settings"
+        >
+          <Settings size={18} />
+        </button>
       </div>
 
-      <div className="px-4 pt-6 flex flex-col flex-1">
+      <div className="px-4 pt-4 flex flex-col flex-1">
 
       {error && (
         <div className="mb-4 bg-red-50 text-red-600 text-sm rounded-2xl px-4 py-3 border border-red-100">
