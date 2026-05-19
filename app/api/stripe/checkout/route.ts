@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+
+function adminClient() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function POST(req: NextRequest) {
   const cookieStore = cookies();
@@ -53,6 +61,11 @@ export async function POST(req: NextRequest) {
       metadata: { supabase_user_id: user.id },
     });
     customerId = customer.id;
+    // Webhook に頼らず即座に保存しておく
+    await adminClient()
+      .from("profiles")
+      .update({ stripe_customer_id: customerId })
+      .eq("id", user.id);
   }
 
   const session = await stripe.checkout.sessions.create({

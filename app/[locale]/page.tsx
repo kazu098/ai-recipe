@@ -702,6 +702,18 @@ function SettingsView({
   const [servings, setServings] = useState(current.servings);
   const [appliances, setAppliances] = useState<string[]>(current.appliances);
   const [ngFoods, setNgFoods] = useState(current.ng_foods);
+  const [planInfo, setPlanInfo] = useState<{ plan: string; stripe_customer_id: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const supabase = createClient();
+    supabase
+      .from("profiles")
+      .select("plan, stripe_customer_id")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => setPlanInfo(data));
+  }, [user]);
 
   const applianceOptions = [
     { id: "hotcook", label: t("hotcook"), icon: "🥘" },
@@ -781,6 +793,29 @@ function SettingsView({
           <p className="text-sm font-semibold text-gray-700 mb-3">{t("language")}</p>
           <LanguageSwitcher />
         </div>
+
+        {user && (
+          <div>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t("current_plan")}</p>
+            <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <p className="font-bold text-gray-800 text-sm">
+                  {planInfo?.plan === "pro" ? t("plan_pro") : t("plan_free")}
+                </p>
+                {planInfo?.plan === "pro" && (
+                  <p className="text-xs text-green-600 mt-0.5">¥980 / {locale === "ja" ? "月" : "mo"}</p>
+                )}
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                planInfo?.plan === "pro"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-500"
+              }`}>
+                {planInfo?.plan === "pro" ? "Pro" : "Free"}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100 space-y-3">
@@ -790,7 +825,7 @@ function SettingsView({
         >
           {t("save")}
         </button>
-        {user && (
+        {user && planInfo?.stripe_customer_id && (
           <button
             onClick={async () => {
               setPortalLoading(true);
