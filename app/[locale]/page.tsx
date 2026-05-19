@@ -292,19 +292,21 @@ export default function HomePage() {
             session_id: sid,
             meal_components: getActiveComponents(selectedPattern, enabledRoles, locale),
             locale,
+            appliances: settings?.appliances ?? [],
+            user_request: userRequest,
           }),
         });
         await readSSE(res, (type, data) => {
           if (type === "meal") {
             const d = data as { meal: Meal };
-            setMeals((prev) => [...prev, { ...d.meal, missing_ingredients: [] }]);
+            setMeals((prev) => [...prev, d.meal]);
           }
         });
       } catch {
         // Phase B failure is silent — first suggestion already shown
       }
     },
-    [tiredMode, selectedPattern, enabledRoles, locale]
+    [tiredMode, selectedPattern, enabledRoles, locale, settings, userRequest]
   );
 
   // ── Phase A: analyze ────────────────────────────────────────────────────────

@@ -30,7 +30,9 @@ function buildPrompt(
   meal_1_name: string,
   meal_1_type: string,
   meal_components: ActiveComp[],
-  locale: string
+  locale: string,
+  has_hotcook: boolean,
+  user_request: string
 ): string {
   const [type2, type3] = tired_mode
     ? ["no_shopping", "best"]
@@ -46,11 +48,46 @@ function buildPrompt(
     soupComp ? soupComp.label : "",
   ].filter(Boolean).join("・");
 
+  const hotcookNote = has_hotcook
+    ? `- 調理器具: ホットクックあり。無水調理・煮物・スープ・蒸し物を優先`
+    : "";
+
+  const hasUserRequest = user_request.trim().length > 0;
+
   const langInstruction = locale === "en"
     ? "IMPORTANT: Write all text values in English (dish names, reasons, ingredient names, genre, etc.).\n\n"
     : "";
-  return `${langInstruction}あなたは家庭料理の専門家です。
 
+  const missingIngredientsRule = hasUserRequest
+    ? `- リクエスト食材が冷蔵庫にない場合は必ず missing_ingredients に追加すること
+- matched_ingredients には冷蔵庫の食材リストにあるもののみ入れること`
+    : `- missing_ingredients は必ず空配列 [] にすること
+- 買い物が必要な料理は絶対に提案しないこと
+- 今ある食材と常備調味料だけで完結する料理を選ぶこと`;
+
+  const userRequestBlock = hasUserRequest
+    ? `\n==========================================
+【最優先指示・絶対に守ること】
+ユーザーのリクエスト: 「${user_request.trim()}」
+==========================================
+
+- リクエストで食材が指定されている場合（例:「白菜と肉を使いたい」）→ 提案する2案すべてその食材を主役にすること。別食材を主役にすることは禁止。
+- リクエストで料理名が指定されている場合（例:「カレーを作りたい」）→ その料理のバリエーション（例: 和風カレー・ドライカレー等）を2案提案すること。
+- リクエスト食材が冷蔵庫にない場合は missing_ingredients に追加してよい。
+`
+    : "";
+
+  const reminderBlock = hasUserRequest
+    ? `\n==========================================
+🔴 再度の念押し:
+ユーザーのリクエスト「${user_request.trim()}」を必ず守ること。
+2案両方とも、リクエストで指定された食材/料理を主役にすること。
+==========================================
+`
+    : "";
+
+  return `${langInstruction}あなたは家庭料理の専門家です。
+${userRequestBlock}
 【絶対条件】
 以下の調味料・基本食材は常に自宅にあるものとして扱ってください:
 ${ALWAYS_AVAILABLE_SEASONINGS}
@@ -59,9 +96,10 @@ ${ALWAYS_AVAILABLE_SEASONINGS}
 ${ingredients.join("、")}
 
 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
+${hotcookNote}
 
 「${meal_1_name}」（${meal_1_type}）は既に提案済みです。
-上記の食材と常備調味料だけで作れる${mainLabel}をあと2案提案してください。
+上記の食材${hasUserRequest ? "とユーザーリクエスト" : "と常備調味料だけ"}で作れる${mainLabel}をあと2案提案してください。
 
 条件:
 - meal_2 の type: "${type2}"
@@ -69,33 +107,31 @@ ${ingredients.join("、")}
 - 「${meal_1_name}」と異なるジャンル・主食材・調理法にすること
 
 【必須ルール】
-- missing_ingredients は必ず空配列 [] にすること
-- 買い物が必要な料理は絶対に提案しないこと
-- 今ある食材と常備調味料だけで完結する料理を選ぶこと
-
+${missingIngredientsRule}
+${reminderBlock}
 出力はJSONのみ（コードブロック・説明文不要）:
 {
   "meals": [
     {
       "type": "${type2}",
-      "name": "${mainLabel}名",
+      "name": "${hasUserRequest ? "リクエストの指定食材/料理を使った料理名" : mainLabel + "名"}",
       "reason": "なぜこの料理か（1文・30字以内）",
       "time_minutes": 数値,
       "difficulty": "easy|medium|hard",
-      "matched_ingredients": ["今ある食材1", ...],
-      "missing_ingredients": [],
+      "matched_ingredients": ["冷蔵庫にあって料理に使う食材"],
+      "missing_ingredients": ${hasUserRequest ? `["リクエスト食材で冷蔵庫にないもの、+必要な追加食材"]` : "[]"},
       "genre": "和食|洋食|中華|エスニック",
       "main_ingredient": "肉|魚|卵|野菜|麺|米",
       "cooking_method": "炒め|煮込み|焼き|揚げ|蒸し|サラダ"${buildSubDishFields(meal_components)}
     },
     {
       "type": "${type3}",
-      "name": "${mainLabel}名",
+      "name": "${hasUserRequest ? "リクエストの指定食材/料理を使った料理名" : mainLabel + "名"}",
       "reason": "なぜこの料理か（1文・30字以内）",
       "time_minutes": 数値,
       "difficulty": "easy|medium|hard",
       "matched_ingredients": [...],
-      "missing_ingredients": [],
+      "missing_ingredients": ${hasUserRequest ? `[...]` : "[]"},
       "genre": "和食|洋食|中華|エスニック",
       "main_ingredient": "肉|魚|卵|野菜|麺|米",
       "cooking_method": "炒め|煮込み|焼き|揚げ|蒸し|サラダ"${buildSubDishFields(meal_components)}
@@ -118,6 +154,8 @@ export async function POST(req: NextRequest) {
     session_id,
     meal_components = [{ role: "main", label: "メイン" }],
     locale = "ja",
+    appliances = [],
+    user_request = "",
   } = await req.json();
 
   if (!ingredients?.length) {
@@ -137,14 +175,21 @@ export async function POST(req: NextRequest) {
         }
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+        const model = genAI.getGenerativeModel({
+          model: "gemini-2.5-flash-lite",
+          generationConfig: { temperature: 0.2 },
+        });
+        const has_hotcook = (appliances as string[]).includes("hotcook");
+        console.log("[alternatives] user_request:", JSON.stringify(user_request));
         const prompt = buildPrompt(
           ingredients,
           tired_mode,
           meal_1_name ?? "",
           meal_1_type ?? "best",
           meal_components as ActiveComp[],
-          locale
+          locale,
+          has_hotcook,
+          user_request
         );
 
         const result = await model.generateContent(prompt);
@@ -162,6 +207,7 @@ export async function POST(req: NextRequest) {
 
         for (const meal of parsed.meals ?? []) {
           meal.id = randomUUID();
+          console.log("[alternatives] meal:", meal.name, "matched:", meal.matched_ingredients, "missing:", meal.missing_ingredients);
           send("meal", { meal });
         }
 
