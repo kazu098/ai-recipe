@@ -9,6 +9,13 @@ import { createClient } from "@/lib/supabase/client";
 type AppView = "onboarding" | "upload" | "analyzing" | "result" | "recipe" | "settings" | "login";
 type AnalyzingPhase = "scanning" | "generating";
 
+type MealComponent = "主菜" | "副菜" | "汁物";
+
+type SubDish = {
+  name: string;
+  matched_ingredients: string[];
+};
+
 type Meal = {
   id: string;
   type: string;
@@ -21,6 +28,8 @@ type Meal = {
   genre: string;
   main_ingredient: string;
   cooking_method: string;
+  fukusai?: SubDish;
+  shirumono?: SubDish;
 };
 
 type ImageItem = { file: File; dataUrl: string };
@@ -128,6 +137,7 @@ export default function HomePage() {
   const [recipe, setRecipe] = useState<RecipeData | null>(null);
   const [recipeLoading, setRecipeLoading] = useState(false);
   const [selectedAppliance, setSelectedAppliance] = useState<string>("pan");
+  const [mealComponents, setMealComponents] = useState<MealComponent[]>(["主菜"]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loginPrompt, setLoginPrompt] = useState<{ show: boolean; reason: "favorite" | "limit" }>({ show: false, reason: "favorite" });
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -255,6 +265,7 @@ export default function HomePage() {
             meal_1_name: meal1.name,
             meal_1_type: meal1.type,
             session_id: sid,
+            meal_components: mealComponents,
           }),
         });
         await readSSE(res, (type, data) => {
@@ -267,7 +278,7 @@ export default function HomePage() {
         // Phase B の失敗はサイレントに無視（1案目は既に表示済み）
       }
     },
-    [tiredMode]
+    [tiredMode, mealComponents]
   );
 
   // ── Phase A: analyze ────────────────────────────────────────────────────────
@@ -313,6 +324,7 @@ export default function HomePage() {
           imageDataUrls: images.map((i) => i.dataUrl),
           tired_mode: tiredMode,
           meal_time: "夕食",
+          meal_components: mealComponents,
         }),
       });
 
@@ -361,7 +373,7 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
       setView("upload");
     }
-  }, [images, tiredMode, startAlternatives]);
+  }, [images, tiredMode, mealComponents, startAlternatives]);
 
   // ── Rendering ───────────────────────────────────────────────────────────────
 
@@ -432,6 +444,7 @@ export default function HomePage() {
       <UploadView
         images={images}
         tiredMode={tiredMode}
+        mealComponents={mealComponents}
         ownedAppliances={settings?.appliances ?? []}
         selectedAppliance={selectedAppliance}
         error={error}
@@ -439,6 +452,13 @@ export default function HomePage() {
         onAddFiles={addFiles}
         onRemoveImage={removeImage}
         onToggleTired={() => setTiredMode((v) => !v)}
+        onToggleMealComponent={(c) =>
+          setMealComponents((prev) =>
+            prev.includes(c)
+              ? prev.length > 1 ? prev.filter((x) => x !== c) : prev
+              : [...prev, c]
+          )
+        }
         onChangeAppliance={setSelectedAppliance}
         onAnalyze={startAnalysis}
         onOpenSettings={() => setView("settings")}
@@ -710,9 +730,16 @@ const APPLIANCE_LABELS: Record<string, { label: string; icon: string }> = {
   oven: { label: "オーブン", icon: "🔥" },
 };
 
+const MEAL_COMPONENT_OPTIONS: { id: MealComponent; icon: string }[] = [
+  { id: "主菜", icon: "🍖" },
+  { id: "副菜", icon: "🥗" },
+  { id: "汁物", icon: "🍵" },
+];
+
 function UploadView({
   images,
   tiredMode,
+  mealComponents,
   ownedAppliances,
   selectedAppliance,
   error,
@@ -720,12 +747,14 @@ function UploadView({
   onAddFiles,
   onRemoveImage,
   onToggleTired,
+  onToggleMealComponent,
   onChangeAppliance,
   onAnalyze,
   onOpenSettings,
 }: {
   images: ImageItem[];
   tiredMode: boolean;
+  mealComponents: MealComponent[];
   ownedAppliances: string[];
   selectedAppliance: string;
   error: string | null;
@@ -733,6 +762,7 @@ function UploadView({
   onAddFiles: (files: FileList | File[]) => void;
   onRemoveImage: (idx: number) => void;
   onToggleTired: () => void;
+  onToggleMealComponent: (c: MealComponent) => void;
   onChangeAppliance: (a: string) => void;
   onAnalyze: () => void;
   onOpenSettings: () => void;
@@ -837,6 +867,27 @@ function UploadView({
           >
             🍳 余力あり
           </button>
+        </div>
+      </div>
+
+      {/* Meal component selector */}
+      <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
+        <p className="text-sm font-semibold text-gray-700 mb-3">献立の構成は？</p>
+        <div className="flex gap-2">
+          {MEAL_COMPONENT_OPTIONS.map(({ id, icon }) => (
+            <button
+              key={id}
+              onClick={() => onToggleMealComponent(id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition ${
+                mealComponents.includes(id)
+                  ? "bg-primary text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              <span>{icon}</span>
+              <span>{id}</span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -1073,8 +1124,9 @@ function ResultView({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
-        {/* Meal name */}
+        {/* 主菜 */}
         <div>
+          <p className="text-xs font-semibold text-primary mb-1">🍖 主菜</p>
           <p className="text-2xl font-bold text-gray-900">{meal.name}</p>
           <p className="text-gray-500 text-sm mt-1">{meal.reason}</p>
           <div className="flex gap-3 mt-2">
@@ -1085,6 +1137,28 @@ function ResultView({
             <span className="text-sm text-gray-500">{meal.genre}</span>
           </div>
         </div>
+
+        {/* 副菜 */}
+        {meal.fukusai && (
+          <div className="bg-white rounded-2xl p-4 border border-gray-100">
+            <p className="text-xs font-semibold text-green-600 mb-1">🥗 副菜</p>
+            <p className="font-bold text-gray-900">{meal.fukusai.name}</p>
+            {meal.fukusai.matched_ingredients?.length > 0 && (
+              <p className="text-sm text-gray-500 mt-1">{meal.fukusai.matched_ingredients.join("・")}</p>
+            )}
+          </div>
+        )}
+
+        {/* 汁物 */}
+        {meal.shirumono && (
+          <div className="bg-white rounded-2xl p-4 border border-gray-100">
+            <p className="text-xs font-semibold text-blue-500 mb-1">🍵 汁物</p>
+            <p className="font-bold text-gray-900">{meal.shirumono.name}</p>
+            {meal.shirumono.matched_ingredients?.length > 0 && (
+              <p className="text-sm text-gray-500 mt-1">{meal.shirumono.matched_ingredients.join("・")}</p>
+            )}
+          </div>
+        )}
 
         {/* Available ingredients */}
         {meal.matched_ingredients?.length > 0 && (

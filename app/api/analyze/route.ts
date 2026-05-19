@@ -28,38 +28,63 @@ ${lines.join("\n")}
 `;
 }
 
-function buildPrompt(tired_mode: boolean, meal_time: string, history: MealHistory[]): string {
+function buildSubDishSection(components: string[]): string {
+  const parts: string[] = [];
+  if (components.includes("副菜")) {
+    parts.push(`    "fukusai": { "name": "副菜名", "matched_ingredients": ["使う食材1", ...] }`);
+  }
+  if (components.includes("汁物")) {
+    parts.push(`    "shirumono": { "name": "汁物名", "matched_ingredients": ["使う食材1", ...] }`);
+  }
+  return parts.length ? ",\n" + parts.join(",\n") : "";
+}
+
+function buildPrompt(
+  tired_mode: boolean,
+  meal_time: string,
+  history: MealHistory[],
+  meal_components: string[]
+): string {
+  const needsFukusai = meal_components.includes("副菜");
+  const needsShirumono = meal_components.includes("汁物");
+  const componentNote = [
+    needsFukusai ? "副菜（小鉢1品）" : "",
+    needsShirumono ? "汁物（味噌汁・スープ等）" : "",
+  ].filter(Boolean).join("と");
+
   return `あなたは家庭料理の専門家です。共働き家庭向けに献立を提案してください。
 
 状況:
 - 食事: ${meal_time}
 - 余力: ${tired_mode ? "疲れている。15分以内・材料少なめで作れる簡単な料理を優先" : "通常"}
+- 献立構成: 主菜${componentNote ? `・${componentNote}` : "のみ"}
 
 【絶対条件】
 以下の調味料・基本食材は常に自宅にあるものとして扱ってください:
 ${ALWAYS_AVAILABLE_SEASONINGS}
 ${buildHistorySection(history)}
-冷蔵庫の写真から食材を認識し（調味料は ingredients に含めない）、今ある食材と上記の常備調味料だけで作れる料理を1案提案してください。
+冷蔵庫の写真から食材を認識し（調味料は ingredients に含めない）、今ある食材と上記の常備調味料だけで作れる献立を提案してください。
 
 【必須ルール】
 - missing_ingredients は必ず空配列 [] にすること
 - 買い物が必要な料理は絶対に提案しないこと
-- 今ある食材と常備調味料だけで完結する料理を選ぶこと
+- 今ある食材と常備調味料だけで完結すること
+${needsFukusai || needsShirumono ? `- 主菜と副菜・汁物は食材が重複しすぎないよう、バランスよく選ぶこと` : ""}
 
 出力はJSONのみ（コードブロック・説明文不要）:
 {
   "ingredients": ["食材1", "食材2", ...],
   "meal": {
     "type": "${tired_mode ? "quick" : "best"}",
-    "name": "料理名",
-    "reason": "なぜこの料理か（1文・30字以内）",
+    "name": "主菜名",
+    "reason": "なぜこの主菜か（1文・30字以内）",
     "time_minutes": 数値,
     "difficulty": "easy|medium|hard",
     "matched_ingredients": ["今ある食材1", ...],
     "missing_ingredients": [],
     "genre": "和食|洋食|中華|エスニック",
     "main_ingredient": "肉|魚|卵|野菜|麺|米",
-    "cooking_method": "炒め|煮込み|焼き|揚げ|蒸し|サラダ"
+    "cooking_method": "炒め|煮込み|焼き|揚げ|蒸し|サラダ"${buildSubDishSection(meal_components)}
   }
 }`;
 }
@@ -150,7 +175,12 @@ async function streamWithGPT4o(
 }
 
 export async function POST(req: NextRequest) {
-  const { imageDataUrls, tired_mode = false, meal_time = "夕食" } = await req.json();
+  const {
+    imageDataUrls,
+    tired_mode = false,
+    meal_time = "夕食",
+    meal_components = ["主菜"],
+  } = await req.json();
 
   if (!imageDataUrls?.length) {
     return new Response("imageDataUrls required", { status: 400 });
@@ -178,7 +208,7 @@ export async function POST(req: NextRequest) {
       // 過去14日履歴を取得しプロンプトに注入（ゲストはスキップ）
       const history = userId ? await getRecentMealHistory(userId) : [];
 
-      const prompt = buildPrompt(tired_mode, meal_time, history);
+      const prompt = buildPrompt(tired_mode, meal_time, history, meal_components);
       let fullText = "";
 
       try {
