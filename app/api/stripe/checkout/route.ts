@@ -21,8 +21,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { locale = "ja" } = await req.json().catch(() => ({}));
+  const { locale = "ja", region = "jp" } = await req.json().catch(() => ({}));
   const origin = req.headers.get("origin") ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://ai-recipe-murex.vercel.app";
+
+  const PRICE_IDS: Record<string, string | undefined> = {
+    jp: process.env.STRIPE_PRO_PRICE_ID_JP,
+    usd: process.env.STRIPE_PRO_PRICE_ID_USD,
+    eur: process.env.STRIPE_PRO_PRICE_ID_EUR,
+  };
+  const priceId = PRICE_IDS[region] ?? PRICE_IDS.usd ?? "";
 
   // 既存の stripe_customer_id を取得
   const { data: profile } = await supabase
@@ -48,7 +55,7 @@ export async function POST(req: NextRequest) {
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
-    line_items: [{ price: process.env.STRIPE_PRO_PRICE_ID!, quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${origin}/${locale}?upgrade=success`,
     cancel_url: `${origin}/${locale}?upgrade=cancelled`,
     client_reference_id: user.id,
