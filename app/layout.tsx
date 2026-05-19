@@ -1,6 +1,14 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import { getLocale } from "next-intl/server";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Snapmeal",
@@ -30,7 +38,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#FF6B35",
+  themeColor: "#2C6E49",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -40,8 +48,8 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
   return (
-    <html lang={locale}>
-      <body className="bg-surface min-h-screen">{children}</body>
+    <html lang={locale} className={inter.variable}>
+      <body className="bg-surface min-h-screen font-sans">{children}</body>
     </html>
   );
 }
