@@ -194,6 +194,11 @@ export default function HomePage() {
         localStorage.removeItem("snapmeal_guest_count");
         setLoginPrompt({ show: false, reason: "favorite" });
         setView((v) => v === "login" ? "upload" : v);
+        // profiles 行がなければ自動作成
+        supabase.from("profiles").upsert(
+          { id: session.user.id, email: session.user.email ?? "" },
+          { onConflict: "id", ignoreDuplicates: true }
+        );
       } else if (event === "SIGNED_OUT") {
         setUser(null);
       }
