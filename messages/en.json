@@ -1,0 +1,122 @@
+{
+  "onboarding": {
+    "title": "Welcome to Snapmeal",
+    "subtitle": "Quick setup — takes about 1 minute",
+    "servings_q": "How many servings?",
+    "appliances_q": "Which appliances do you have?",
+    "appliances_hint": "You can select multiple",
+    "ng_q": "Any food allergies or dislikes?",
+    "ng_hint": "Optional · Feel free to skip",
+    "ng_placeholder": "e.g. eggs, shrimp, peanuts",
+    "4plus": "4+",
+    "n_people": "{n}",
+    "next": "Next →",
+    "back": "← Back",
+    "complete": "Done",
+    "hotcook": "Hotcook",
+    "pan": "Pan & Pot",
+    "microwave": "Microwave",
+    "oven": "Oven & Grill"
+  },
+  "settings": {
+    "title": "Settings",
+    "servings_q": "How many servings?",
+    "appliances_q": "Your appliances",
+    "ng_q": "Food allergies & dislikes",
+    "ng_hint": "Optional",
+    "ng_placeholder": "e.g. eggs, shrimp, peanuts",
+    "4plus": "4+",
+    "n_people": "{n}",
+    "save": "Save",
+    "logout": "Log out",
+    "language": "言語 / Language",
+    "hotcook": "Hotcook",
+    "pan": "Pan & Pot",
+    "microwave": "Microwave",
+    "oven": "Oven & Grill"
+  },
+  "upload": {
+    "greeting": "Let's plan tonight's dinner",
+    "subtitle": "Take a photo of your fridge",
+    "photo_cta": "Take a fridge photo",
+    "gallery": "Or select from gallery",
+    "count_with_tip": "{count}/{max} photos · Multiple angles improve accuracy",
+    "count_only": "{count}/{max} photos",
+    "energy_q": "How's your energy today?",
+    "tired": "⚡ Tired",
+    "energized": "🍳 Energized",
+    "style_q": "Meal style?",
+    "add_q": "Add dishes?",
+    "appliance_q": "Which appliance today?",
+    "analyze": "Analyze",
+    "hotcook": "Hotcook",
+    "pan": "Pan",
+    "microwave": "Microwave",
+    "oven": "Oven"
+  },
+  "analyzing": {
+    "scanning": "Scanning ingredients...",
+    "generating": "🍳 Planning your meal..."
+  },
+  "result": {
+    "title": "Tonight's Meal",
+    "available": "✅ Ready to cook with what you have",
+    "missing": "🛒 Need to buy ({count} items)",
+    "time": "⏱ {minutes} min",
+    "difficulty_label": "★ {level}",
+    "easy": "Easy",
+    "medium": "Medium",
+    "hard": "Advanced",
+    "select": "Cook this meal",
+    "next": "Show another",
+    "preparing": "Preparing another..."
+  },
+  "recipe": {
+    "generating_title": "Generating recipe...",
+    "default_title": "Recipe",
+    "servings": "{count} servings",
+    "ingredients": "Ingredients",
+    "seasonings": "Seasonings",
+    "hotcook": "🥘 Hotcook Steps",
+    "steps": "Instructions",
+    "thinking": "Thinking about your recipe...",
+    "made_it": "👍 Made it!",
+    "safety": "⚠️ Please check freshness and expiry dates yourself"
+  },
+  "login": {
+    "title": "Snapmeal",
+    "subtitle": "Just snap your fridge. Dinner decided in 30 seconds.",
+    "email_label": "Email address",
+    "email_placeholder": "your@email.com",
+    "send_cta": "Send login link",
+    "sending": "Sending...",
+    "no_password": "No password needed. Just tap the link in your email.",
+    "sent_title": "Email sent",
+    "sent_body": "We sent a login link to {email}.",
+    "sent_hint": "Tap the link in your email to log in."
+  },
+  "loginPrompt": {
+    "fav_title": "Save your favorites",
+    "fav_body": "Log in to save and manage your favorite meals.",
+    "limit_title": "Free limit reached",
+    "limit_body": "Guests can use Snapmeal {limit} times for free. Log in for unlimited access.",
+    "cta": "Log in (free)",
+    "later": "Later"
+  },
+  "upgrade": {
+    "title": "Monthly limit reached",
+    "body": "Free plan allows 10 uses per month.\nUpgrade to Pro for 90 uses per month.",
+    "free_label": "Free",
+    "free_price": "¥0",
+    "free_count": "10 uses/month",
+    "pro_label": "Pro ✨",
+    "pro_price": "¥980",
+    "pro_period": "/mo",
+    "pro_count": "90 uses/month",
+    "cta": "Upgrade to Pro (¥980/month)",
+    "wait": "Wait until next month"
+  },
+  "authCallback": {
+    "loading": "Logging in..."
+  }
+}
