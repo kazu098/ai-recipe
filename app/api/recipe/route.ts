@@ -12,7 +12,8 @@ function buildPrompt(
   appliances: string[],
   ngFoods: string,
   side: SubDish | null,
-  soup: SubDish | null
+  soup: SubDish | null,
+  locale: string
 ): string {
   const hasHotcook = appliances.includes("hotcook");
   const ngLine = ngFoods ? `使用禁止食材（アレルギー等）: ${ngFoods}` : "";
@@ -39,7 +40,10 @@ function buildPrompt(
     soup ? `【${soupLabel}】${soup.name}（使用食材: ${soup.matched_ingredients.join("、") || "適量"}）の簡単なレシピも生成してください。` : "",
   ].filter(Boolean).join("\n");
 
-  return `あなたは家庭料理の専門家です。以下の献立の詳細レシピを${servings}人分で作成してください。
+  const langInstruction = locale === "en"
+    ? "IMPORTANT: Write all text values in English (ingredient names, amounts, steps, tips, etc.).\n\n"
+    : "";
+  return `${langInstruction}あなたは家庭料理の専門家です。以下の献立の詳細レシピを${servings}人分で作成してください。
 
 【メイン】
 料理名: ${mealName}
@@ -90,6 +94,7 @@ export async function POST(req: NextRequest) {
     ngFoods = "",
     side = null,
     soup = null,
+    locale = "ja",
   } = await req.json();
 
   if (!mealName) {
@@ -118,7 +123,8 @@ export async function POST(req: NextRequest) {
       appliances,
       ngFoods,
       side,
-      soup
+      soup,
+      locale
     );
 
     const result = await model.generateContent(prompt);

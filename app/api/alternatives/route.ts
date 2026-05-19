@@ -29,7 +29,8 @@ function buildPrompt(
   tired_mode: boolean,
   meal_1_name: string,
   meal_1_type: string,
-  meal_components: ActiveComp[]
+  meal_components: ActiveComp[],
+  locale: string
 ): string {
   const [type2, type3] = tired_mode
     ? ["no_shopping", "best"]
@@ -45,7 +46,10 @@ function buildPrompt(
     soupComp ? soupComp.label : "",
   ].filter(Boolean).join("・");
 
-  return `あなたは家庭料理の専門家です。
+  const langInstruction = locale === "en"
+    ? "IMPORTANT: Write all text values in English (dish names, reasons, ingredient names, genre, etc.).\n\n"
+    : "";
+  return `${langInstruction}あなたは家庭料理の専門家です。
 
 【絶対条件】
 以下の調味料・基本食材は常に自宅にあるものとして扱ってください:
@@ -113,6 +117,7 @@ export async function POST(req: NextRequest) {
     meal_1_type,
     session_id,
     meal_components = [{ role: "main", label: "メイン" }],
+    locale = "ja",
   } = await req.json();
 
   if (!ingredients?.length) {
@@ -138,7 +143,8 @@ export async function POST(req: NextRequest) {
           tired_mode,
           meal_1_name ?? "",
           meal_1_type ?? "best",
-          meal_components as ActiveComp[]
+          meal_components as ActiveComp[],
+          locale
         );
 
         const result = await model.generateContent(prompt);

@@ -259,6 +259,7 @@ export default function HomePage() {
           soup: meal.soup
             ? { ...meal.soup, label: getComponentLabel(selectedPattern, "soup", locale) }
             : null,
+          locale,
         }),
       });
       const data: RecipeData = await res.json();
@@ -285,6 +286,7 @@ export default function HomePage() {
             meal_1_type: meal1.type,
             session_id: sid,
             meal_components: getActiveComponents(selectedPattern, enabledRoles, locale),
+            locale,
           }),
         });
         await readSSE(res, (type, data) => {
@@ -343,6 +345,7 @@ export default function HomePage() {
           tired_mode: tiredMode,
           meal_time: locale === "ja" ? "夕食" : "dinner",
           meal_components: getActiveComponents(selectedPattern, enabledRoles, locale),
+          locale,
         }),
       });
 
