@@ -426,6 +426,7 @@ export default function HomePage() {
         current={settings ?? { servings: 2, appliances: ["pan"], ng_foods: "" }}
         onSave={(s) => { saveSettings(s); setView("upload"); }}
         onBack={() => setView("upload")}
+        onLogin={() => setView("login")}
         user={user}
         locale={locale}
       />
@@ -693,12 +694,14 @@ function SettingsView({
   current,
   onSave,
   onBack,
+  onLogin,
   user,
   locale,
 }: {
   current: UserSettings;
   onSave: (s: UserSettings) => void;
   onBack: () => void;
+  onLogin: () => void;
   user: import("@supabase/supabase-js").User | null;
   locale: string;
 }) {
@@ -852,15 +855,25 @@ function SettingsView({
             {portalLoading ? "..." : t("manage_plan")}
           </button>
         )}
-        <button
-          onClick={async () => {
-            const supabase = createClient();
-            await supabase.auth.signOut();
-          }}
-          className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
-        >
-          {t("logout")}
-        </button>
+        {user ? (
+          <button
+            onClick={async () => {
+              const supabase = createClient();
+              await supabase.auth.signOut();
+              onBack();
+            }}
+            className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
+          >
+            {t("logout")}
+          </button>
+        ) : (
+          <button
+            onClick={onLogin}
+            className="w-full text-primary text-sm py-2 hover:opacity-70 transition"
+          >
+            {t("login_cta")}
+          </button>
+        )}
       </div>
     </main>
   );
