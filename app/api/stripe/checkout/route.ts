@@ -24,12 +24,15 @@ export async function POST(req: NextRequest) {
   const { locale = "ja", region = "jp" } = await req.json().catch(() => ({}));
   const origin = req.headers.get("origin") ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://ai-recipe-murex.vercel.app";
 
+  const isLocal = process.env.NODE_ENV === "development";
   const PRICE_IDS: Record<string, string | undefined> = {
-    jp: process.env.STRIPE_PRO_PRICE_ID_JP,
+    jp: isLocal
+      ? (process.env.STRIPE_PRO_PRICE_ID_JP_LOCAL ?? process.env.STRIPE_PRO_PRICE_ID_JP)
+      : process.env.STRIPE_PRO_PRICE_ID_JP,
     usd: process.env.STRIPE_PRO_PRICE_ID_USD,
     eur: process.env.STRIPE_PRO_PRICE_ID_EUR,
   };
-  const priceId = PRICE_IDS[region] ?? PRICE_IDS.usd ?? "";
+  const priceId = PRICE_IDS[region] ?? PRICE_IDS.jp ?? "";
 
   // 既存の stripe_customer_id を取得
   const { data: profile } = await supabase
