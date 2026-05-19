@@ -194,6 +194,11 @@ export default function HomePage() {
         localStorage.removeItem("snapmeal_guest_count");
         setLoginPrompt({ show: false, reason: "favorite" });
         setView((v) => v === "login" ? "upload" : v);
+        // profiles 行がなければ自動作成
+        supabase.from("profiles").upsert(
+          { id: session.user.id, email: session.user.email ?? "" },
+          { onConflict: "id", ignoreDuplicates: true }
+        );
       } else if (event === "SIGNED_OUT") {
         setUser(null);
       }
@@ -421,6 +426,7 @@ export default function HomePage() {
         current={settings ?? { servings: 2, appliances: ["pan"], ng_foods: "" }}
         onSave={(s) => { saveSettings(s); setView("upload"); }}
         onBack={() => setView("upload")}
+        onLogin={() => setView("login")}
         user={user}
         locale={locale}
       />
@@ -688,12 +694,14 @@ function SettingsView({
   current,
   onSave,
   onBack,
+  onLogin,
   user,
   locale,
 }: {
   current: UserSettings;
   onSave: (s: UserSettings) => void;
   onBack: () => void;
+  onLogin: () => void;
   user: import("@supabase/supabase-js").User | null;
   locale: string;
 }) {
@@ -702,6 +710,18 @@ function SettingsView({
   const [servings, setServings] = useState(current.servings);
   const [appliances, setAppliances] = useState<string[]>(current.appliances);
   const [ngFoods, setNgFoods] = useState(current.ng_foods);
+  const [planInfo, setPlanInfo] = useState<{ plan: string; stripe_customer_id: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const supabase = createClient();
+    supabase
+      .from("profiles")
+      .select("plan, stripe_customer_id")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => setPlanInfo(data));
+  }, [user]);
 
   const applianceOptions = [
     { id: "hotcook", label: t("hotcook"), icon: "🥘" },
@@ -781,6 +801,29 @@ function SettingsView({
           <p className="text-sm font-semibold text-gray-700 mb-3">{t("language")}</p>
           <LanguageSwitcher />
         </div>
+
+        {user && (
+          <div>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t("current_plan")}</p>
+            <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <p className="font-bold text-gray-800 text-sm">
+                  {planInfo?.plan === "pro" ? t("plan_pro") : t("plan_free")}
+                </p>
+                {planInfo?.plan === "pro" && (
+                  <p className="text-xs text-green-600 mt-0.5">¥980 / {locale === "ja" ? "月" : "mo"}</p>
+                )}
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                planInfo?.plan === "pro"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-500"
+              }`}>
+                {planInfo?.plan === "pro" ? "Pro" : "Free"}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100 space-y-3">
@@ -790,7 +833,7 @@ function SettingsView({
         >
           {t("save")}
         </button>
-        {user && (
+        {user && planInfo?.stripe_customer_id && (
           <button
             onClick={async () => {
               setPortalLoading(true);
@@ -812,15 +855,25 @@ function SettingsView({
             {portalLoading ? "..." : t("manage_plan")}
           </button>
         )}
-        <button
-          onClick={async () => {
-            const supabase = createClient();
-            await supabase.auth.signOut();
-          }}
-          className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
-        >
-          {t("logout")}
-        </button>
+        {user ? (
+          <button
+            onClick={async () => {
+              const supabase = createClient();
+              await supabase.auth.signOut();
+              onBack();
+            }}
+            className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
+          >
+            {t("logout")}
+          </button>
+        ) : (
+          <button
+            onClick={onLogin}
+            className="w-full text-primary text-sm py-2 hover:opacity-70 transition"
+          >
+            {t("login_cta")}
+          </button>
+        )}
       </div>
     </main>
   );
