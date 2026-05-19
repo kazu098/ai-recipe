@@ -50,6 +50,8 @@
     "style_q": "Meal style?",
     "add_q": "Add dishes?",
     "appliance_q": "Which appliance today?",
+    "request_q": "Request (optional)",
+    "request_placeholder": "e.g. I want curry, use the cabbage...",
     "analyze": "Analyze",
     "hotcook": "Hotcook",
     "pan": "Pan",

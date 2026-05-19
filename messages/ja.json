@@ -50,6 +50,8 @@
     "style_q": "献立スタイルは？",
     "add_q": "追加する品は？",
     "appliance_q": "今日使う調理器具は？",
+    "request_q": "リクエスト（任意）",
+    "request_placeholder": "例: カレーを作りたい、白菜を使って...",
     "analyze": "解析する",
     "hotcook": "ホットクック",
     "pan": "フライパン",
