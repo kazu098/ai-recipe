@@ -399,7 +399,7 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : tUpload("error"));
       setView("upload");
     }
-  }, [images, tiredMode, selectedPattern, enabledRoles, locale, startAlternatives]);
+  }, [images, tiredMode, selectedPattern, enabledRoles, locale, settings, userRequest, user, startAlternatives]);
 
   // ── Rendering ───────────────────────────────────────────────────────────────
 
