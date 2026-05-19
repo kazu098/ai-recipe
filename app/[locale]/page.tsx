@@ -421,6 +421,8 @@ export default function HomePage() {
         current={settings ?? { servings: 2, appliances: ["pan"], ng_foods: "" }}
         onSave={(s) => { saveSettings(s); setView("upload"); }}
         onBack={() => setView("upload")}
+        user={user}
+        locale={locale}
       />
     );
   }
@@ -506,7 +508,7 @@ export default function HomePage() {
         />
       )}
       {showUpgradeModal && (
-        <UpgradeModal onClose={() => setShowUpgradeModal(false)} />
+        <UpgradeModal onClose={() => setShowUpgradeModal(false)} locale={locale} />
       )}
     </>
   );
@@ -686,12 +688,17 @@ function SettingsView({
   current,
   onSave,
   onBack,
+  user,
+  locale,
 }: {
   current: UserSettings;
   onSave: (s: UserSettings) => void;
   onBack: () => void;
+  user: import("@supabase/supabase-js").User | null;
+  locale: string;
 }) {
   const t = useTranslations("settings");
+  const [portalLoading, setPortalLoading] = useState(false);
   const [servings, setServings] = useState(current.servings);
   const [appliances, setAppliances] = useState<string[]>(current.appliances);
   const [ngFoods, setNgFoods] = useState(current.ng_foods);
@@ -783,6 +790,28 @@ function SettingsView({
         >
           {t("save")}
         </button>
+        {user && (
+          <button
+            onClick={async () => {
+              setPortalLoading(true);
+              try {
+                const res = await fetch("/api/stripe/portal", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ locale }),
+                });
+                const data = await res.json();
+                if (data.url) window.location.href = data.url;
+              } finally {
+                setPortalLoading(false);
+              }
+            }}
+            disabled={portalLoading}
+            className="w-full text-primary text-sm py-2 hover:opacity-70 transition disabled:opacity-40"
+          >
+            {portalLoading ? "..." : t("manage_plan")}
+          </button>
+        )}
         <button
           onClick={async () => {
             const supabase = createClient();
@@ -1569,8 +1598,24 @@ function LoginView({ onBack }: { onBack: () => void }) {
 
 // ─── Upgrade modal ────────────────────────────────────────────────────────────
 
-function UpgradeModal({ onClose }: { onClose: () => void }) {
+function UpgradeModal({ onClose, locale }: { onClose: () => void; locale: string }) {
   const t = useTranslations("upgrade");
+  const [loading, setLoading] = useState(false);
+
+  const handleUpgrade = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locale }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-8">
@@ -1599,12 +1644,11 @@ function UpgradeModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <button
-          onClick={() => {
-            window.open("https://buy.stripe.com/snapmeal-pro", "_blank");
-          }}
-          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-200 hover:opacity-90 transition mb-3"
+          onClick={handleUpgrade}
+          disabled={loading}
+          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-200 hover:opacity-90 transition mb-3 disabled:opacity-60"
         >
-          {t("cta")}
+          {loading ? t("redirecting") : t("cta")}
         </button>
         <button
           onClick={onClose}
