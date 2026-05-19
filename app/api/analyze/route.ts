@@ -70,27 +70,37 @@ function buildPrompt(
     : "";
 
   const hasUserRequest = user_request.trim().length > 0;
-  const userRequestSection = hasUserRequest
-    ? `\n【ユーザーのリクエスト】\n「${user_request.trim()}」\nこのリクエストを最優先で考慮してください。リクエストに合う料理を提案し、冷蔵庫にない食材が必要な場合は missing_ingredients に追加してください。\n`
+
+  const userRequestBlock = hasUserRequest
+    ? `【絶対命令・最優先】
+ユーザーのリクエスト: 「${user_request.trim()}」
+この指示は他のすべてのルールより優先されます。
+- リクエストで食材が指定されている場合（例:「白菜と肉を使いたい」）→ それらを主役にした料理を必ず提案すること。他の食材を主役にすることは禁止。
+- リクエストで料理名が指定されている場合（例:「カレーを作りたい」）→ その料理を必ず提案すること。
+- 冷蔵庫にない食材が必要な場合は missing_ingredients に追加してよい。
+
+`
     : "";
 
   const missingIngredientsRule = hasUserRequest
-    ? `- リクエストに応じた料理を優先し、足りない食材は missing_ingredients に列挙すること（買い足しが必要な場合はそれを明示）`
-    : `- missing_ingredients は必ず空配列 [] にすること\n- 買い物が必要な料理は絶対に提案しないこと\n- 今ある食材と常備調味料だけで完結すること`;
+    ? `- リクエストで指定された食材・料理を最優先で提案すること
+- 冷蔵庫にない食材が必要な場合は missing_ingredients に列挙すること`
+    : `- missing_ingredients は必ず空配列 [] にすること
+- 買い物が必要な料理は絶対に提案しないこと
+- 今ある食材と常備調味料だけで完結すること`;
 
   const langInstruction = locale === "en"
     ? "IMPORTANT: Write all text values in English (dish names, reasons, ingredient names, genre, etc.).\n\n"
     : "";
-  return `${langInstruction}あなたは家庭料理の専門家です。共働き家庭向けに献立を提案してください。
+  return `${langInstruction}${userRequestBlock}あなたは家庭料理の専門家です。共働き家庭向けに献立を提案してください。
 
 状況:
 - 食事: ${meal_time}
 - 余力: ${tired_mode ? "疲れている。15分以内・材料少なめで作れる簡単な料理を優先" : "通常"}
 - 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
 ${hotcookNote}
-${userRequestSection}
-【絶対条件】
-以下の調味料・基本食材は常に自宅にあるものとして扱ってください:
+
+【常備調味料・基本食材（常に自宅にあるものとして扱う）】
 ${ALWAYS_AVAILABLE_SEASONINGS}
 ${buildHistorySection(history)}
 冷蔵庫の写真から食材を認識し（調味料は ingredients に含めない）、献立を提案してください。
