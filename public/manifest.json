@@ -6,7 +6,7 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FEFDF8",
-  "theme_color": "#FF6B35",
+  "theme_color": "#2C6E49",
   "orientation": "portrait-primary",
   "lang": "ja",
   "categories": ["food", "lifestyle", "utilities"],

@@ -582,7 +582,7 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
                 onClick={() => setServings(n)}
                 className={`py-6 rounded-2xl text-xl font-bold transition ${
                   servings === n
-                    ? "bg-primary text-white shadow-lg shadow-orange-200"
+                    ? "bg-primary text-white shadow-lg shadow-green-200"
                     : "bg-white border-2 border-gray-100 text-gray-700 hover:border-primary"
                 }`}
               >
@@ -592,7 +592,7 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
           </div>
           <button
             onClick={() => setStep(2)}
-            className="w-full mt-auto pt-8 bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-orange-200 hover:opacity-90 transition"
+            className="w-full mt-auto pt-8 bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-green-200 hover:opacity-90 transition"
           >
             {t("next")}
           </button>
@@ -610,7 +610,7 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
                 onClick={() => toggleAppliance(id)}
                 className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition ${
                   appliances.includes(id)
-                    ? "border-primary bg-orange-50"
+                    ? "border-primary bg-green-50"
                     : "border-gray-100 bg-white hover:border-gray-200"
                 }`}
               >
@@ -631,7 +631,7 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
             </button>
             <button
               onClick={() => setStep(3)}
-              className="flex-1 py-4 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-orange-200 hover:opacity-90 transition"
+              className="flex-1 py-4 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-green-200 hover:opacity-90 transition"
             >
               {t("next")}
             </button>
@@ -659,7 +659,7 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
             </button>
             <button
               onClick={() => onComplete({ servings, appliances, ng_foods: ngFoods })}
-              className="flex-1 py-4 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-orange-200 hover:opacity-90 transition"
+              className="flex-1 py-4 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-green-200 hover:opacity-90 transition"
             >
               {t("complete")}
             </button>
@@ -715,7 +715,7 @@ function SettingsView({
                 onClick={() => setServings(n)}
                 className={`py-3 rounded-xl font-bold transition text-sm ${
                   servings === n
-                    ? "bg-primary text-white shadow-md shadow-orange-200"
+                    ? "bg-primary text-white shadow-md shadow-green-200"
                     : "bg-white border-2 border-gray-100 text-gray-700 hover:border-primary"
                 }`}
               >
@@ -734,7 +734,7 @@ function SettingsView({
                 onClick={() => toggleAppliance(id)}
                 className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition ${
                   appliances.includes(id)
-                    ? "border-primary bg-orange-50"
+                    ? "border-primary bg-green-50"
                     : "border-gray-100 bg-white hover:border-gray-200"
                 }`}
               >
@@ -769,7 +769,7 @@ function SettingsView({
       <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100 space-y-3">
         <button
           onClick={() => onSave({ servings, appliances, ng_foods: ngFoods })}
-          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition"
+          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-200 hover:opacity-90 transition"
         >
           {t("save")}
         </button>
@@ -835,22 +835,23 @@ function UploadView({
   };
 
   return (
-    <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Snapmeal</h1>
-        <button
-          onClick={onOpenSettings}
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition text-gray-500 text-xl"
-          aria-label="Settings"
-        >
-          ⚙️
-        </button>
+    <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
+      <div className="bg-primary-dark px-4 pt-6 pb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">Snapmeal</h1>
+          <button
+            onClick={onOpenSettings}
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white text-xl"
+            aria-label="Settings"
+          >
+            ⚙️
+          </button>
+        </div>
+        <p className="text-base font-semibold text-white">{t("greeting")}</p>
+        <p className="text-sm text-white/70 mt-0.5">{t("subtitle")}</p>
       </div>
 
-      <div className="mb-6">
-        <p className="text-lg font-semibold text-gray-800">{t("greeting")}</p>
-        <p className="text-sm text-gray-500 mt-0.5">{t("subtitle")}</p>
-      </div>
+      <div className="px-4 pt-6 flex flex-col flex-1">
 
       {error && (
         <div className="mb-4 bg-red-50 text-red-600 text-sm rounded-2xl px-4 py-3 border border-red-100">
@@ -866,7 +867,7 @@ function UploadView({
       >
         {images.length === 0 ? (
           <div className="flex flex-col items-center py-6 gap-3">
-            <div className="w-20 h-20 rounded-full bg-orange-50 flex items-center justify-center">
+            <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center">
               <span className="text-4xl">📷</span>
             </div>
             <p className="font-semibold text-gray-700">{t("photo_cta")}</p>
@@ -1001,10 +1002,11 @@ function UploadView({
       <button
         onClick={onAnalyze}
         disabled={images.length === 0}
-        className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-orange-200 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+        className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-green-200 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
       >
         {t("analyze")}
       </button>
+      </div>
     </main>
   );
 }
@@ -1183,16 +1185,16 @@ function RecipeView({
             )}
 
             {recipe.hotcook_menu && recipe.hotcook_menu.length > 0 && (
-              <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
-                <p className="font-semibold text-orange-700 mb-3">{t("hotcook")}</p>
+              <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
+                <p className="font-semibold text-green-800 mb-3">{t("hotcook")}</p>
                 <div className="flex flex-wrap items-center gap-1.5 text-sm">
                   {recipe.hotcook_menu.map((step, i) => (
                     <span key={i} className="flex items-center gap-1.5">
-                      <span className="bg-white border border-orange-200 text-orange-700 px-2.5 py-1 rounded-lg font-medium whitespace-nowrap">
+                      <span className="bg-white border border-green-200 text-green-800 px-2.5 py-1 rounded-lg font-medium whitespace-nowrap">
                         {step}
                       </span>
                       {i < recipe.hotcook_menu!.length - 1 && (
-                        <span className="text-orange-300">→</span>
+                        <span className="text-green-300">→</span>
                       )}
                     </span>
                   ))}
@@ -1365,7 +1367,7 @@ function ResultView({
 
         <button
           onClick={() => onSelectMeal(meal)}
-          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition"
+          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-200 hover:opacity-90 transition"
         >
           {t("select")}
         </button>
@@ -1411,7 +1413,7 @@ function LoginPromptModal({
         </div>
         <button
           onClick={onLogin}
-          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition mb-3"
+          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-200 hover:opacity-90 transition mb-3"
         >
           {t("cta")}
         </button>
@@ -1497,7 +1499,7 @@ function LoginView({ onBack }: { onBack: () => void }) {
                 placeholder={t("email_placeholder")}
                 required
                 autoFocus
-                className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-orange-100 transition text-base"
+                className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-green-100 transition text-base"
               />
             </div>
 
@@ -1508,7 +1510,7 @@ function LoginView({ onBack }: { onBack: () => void }) {
             <button
               type="submit"
               disabled={loading || !email.trim()}
-              className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-200 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {loading ? t("sending") : t("send_cta")}
             </button>
@@ -1544,7 +1546,7 @@ function UpgradeModal({ onClose }: { onClose: () => void }) {
               <p className="text-2xl font-bold text-gray-800 mb-1">{t("free_price")}</p>
               <p className="text-sm text-gray-500">{t("free_count")}</p>
             </div>
-            <div className="flex-1 bg-orange-50 rounded-2xl p-4 text-left border-2 border-primary">
+            <div className="flex-1 bg-green-50 rounded-2xl p-4 text-left border-2 border-primary">
               <p className="text-xs text-primary font-semibold mb-1">{t("pro_label")}</p>
               <p className="text-2xl font-bold text-gray-800 mb-1">
                 {t("pro_price")}<span className="text-sm font-normal text-gray-500">{t("pro_period")}</span>
@@ -1558,7 +1560,7 @@ function UpgradeModal({ onClose }: { onClose: () => void }) {
           onClick={() => {
             window.open("https://buy.stripe.com/snapmeal-pro", "_blank");
           }}
-          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition mb-3"
+          className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-200 hover:opacity-90 transition mb-3"
         >
           {t("cta")}
         </button>
