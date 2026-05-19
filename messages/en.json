@@ -30,12 +30,14 @@
     "save": "Save",
     "logout": "Log out",
     "language": "言語 / Language",
+    "lang_ja": "日本語",
     "hotcook": "Hotcook",
     "pan": "Pan & Pot",
     "microwave": "Microwave",
     "oven": "Oven & Grill"
   },
   "upload": {
+    "error": "Something went wrong",
     "greeting": "Let's plan tonight's dinner",
     "subtitle": "Take a photo of your fridge",
     "photo_cta": "Take a fridge photo",

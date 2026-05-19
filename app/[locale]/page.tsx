@@ -160,6 +160,7 @@ export default function HomePage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
   const locale = useLocale() as "ja" | "en";
+  const tUpload = useTranslations("upload");
 
   const defaultAppliance = (s: UserSettings) =>
     s.appliances.includes("hotcook") ? "hotcook" : (s.appliances[0] ?? "pan");
@@ -389,7 +390,7 @@ export default function HomePage() {
         }
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
+      setError(err instanceof Error ? err.message : tUpload("error"));
       setView("upload");
     }
   }, [images, tiredMode, selectedPattern, enabledRoles, locale, startAlternatives]);
@@ -507,6 +508,7 @@ function LanguageSwitcher() {
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
+  const t = useTranslations("settings");
 
   return (
     <div className="flex items-center gap-1">
@@ -516,7 +518,7 @@ function LanguageSwitcher() {
           locale === "ja" ? "bg-primary text-white" : "text-gray-400 hover:text-gray-600"
         }`}
       >
-        日本語
+        {t("lang_ja")}
       </button>
       <span className="text-gray-200 text-sm">|</span>
       <button
@@ -1057,6 +1059,7 @@ function SubRecipeCard({
   icon: string;
   sub: SubRecipe;
 }) {
+  const t = useTranslations("recipe");
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
       <div className="px-4 pt-4 pb-2">
@@ -1066,7 +1069,7 @@ function SubRecipeCard({
       <div className="px-4 pb-2">
         {sub.ingredients?.length > 0 && (
           <div className="mb-3">
-            <p className="text-xs font-semibold text-gray-500 mb-1.5">材料</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">{t("ingredients")}</p>
             <div className="space-y-1">
               {sub.ingredients.map((item, i) => (
                 <div key={i} className="flex justify-between text-sm">
@@ -1079,7 +1082,7 @@ function SubRecipeCard({
         )}
         {sub.seasonings?.length > 0 && (
           <div className="mb-3">
-            <p className="text-xs font-semibold text-gray-500 mb-1.5">調味料</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">{t("seasonings")}</p>
             <div className="space-y-1">
               {sub.seasonings.map((item, i) => (
                 <div key={i} className="flex justify-between text-sm">
@@ -1092,7 +1095,7 @@ function SubRecipeCard({
         )}
         {sub.steps?.length > 0 && (
           <div className="pb-2">
-            <p className="text-xs font-semibold text-gray-500 mb-1.5">作り方</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">{t("steps")}</p>
             <div className="space-y-2">
               {sub.steps.map((step, i) => (
                 <div key={i} className="flex gap-2">
