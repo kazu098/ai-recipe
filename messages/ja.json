@@ -28,6 +28,7 @@
     "4plus": "4人以上",
     "n_people": "{n}人",
     "save": "保存する",
+    "manage_plan": "プランを管理する（解約・カード変更）",
     "logout": "ログアウト",
     "language": "言語 / Language",
     "lang_ja": "日本語",
@@ -118,6 +119,7 @@
     "pro_period": "/月",
     "pro_count": "月90回・回数無制限感覚",
     "cta": "Proにアップグレード（¥980/月）",
+    "redirecting": "Stripeへ移動中...",
     "wait": "来月まで待つ"
   },
   "authCallback": {

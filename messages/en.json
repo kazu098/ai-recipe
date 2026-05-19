@@ -28,6 +28,7 @@
     "4plus": "4+",
     "n_people": "{n}",
     "save": "Save",
+    "manage_plan": "Manage plan (cancel / change card)",
     "logout": "Log out",
     "language": "言語 / Language",
     "lang_ja": "日本語",
@@ -118,6 +119,7 @@
     "pro_period": "/mo",
     "pro_count": "90 uses/month",
     "cta": "Upgrade to Pro (¥980/month)",
+    "redirecting": "Redirecting to Stripe...",
     "wait": "Wait until next month"
   },
   "authCallback": {
