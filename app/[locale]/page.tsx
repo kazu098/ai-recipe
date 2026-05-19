@@ -155,6 +155,7 @@ export default function HomePage() {
   const [selectedAppliance, setSelectedAppliance] = useState<string>("pan");
   const [selectedPattern, setSelectedPattern] = useState<MealPattern>(DEFAULT_PATTERN);
   const [enabledRoles, setEnabledRoles] = useState<ComponentRole[]>([]);
+  const [userRequest, setUserRequest] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loginPrompt, setLoginPrompt] = useState<{ show: boolean; reason: "favorite" | "limit" }>({ show: false, reason: "favorite" });
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -291,19 +292,21 @@ export default function HomePage() {
             session_id: sid,
             meal_components: getActiveComponents(selectedPattern, enabledRoles, locale),
             locale,
+            appliances: settings?.appliances ?? [],
+            user_request: userRequest,
           }),
         });
         await readSSE(res, (type, data) => {
           if (type === "meal") {
             const d = data as { meal: Meal };
-            setMeals((prev) => [...prev, { ...d.meal, missing_ingredients: [] }]);
+            setMeals((prev) => [...prev, d.meal]);
           }
         });
       } catch {
         // Phase B failure is silent — first suggestion already shown
       }
     },
-    [tiredMode, selectedPattern, enabledRoles, locale]
+    [tiredMode, selectedPattern, enabledRoles, locale, settings, userRequest]
   );
 
   // ── Phase A: analyze ────────────────────────────────────────────────────────
@@ -350,6 +353,8 @@ export default function HomePage() {
           meal_time: locale === "ja" ? "夕食" : "dinner",
           meal_components: getActiveComponents(selectedPattern, enabledRoles, locale),
           locale,
+          appliances: settings?.appliances ?? [],
+          user_request: userRequest,
         }),
       });
 
@@ -363,7 +368,7 @@ export default function HomePage() {
           setStreamingIngredients((prev) => [...prev, d.item]);
         } else if (type === "meal") {
           const d = data as { meal: Meal; ingredients: string[] };
-          const meal = { ...d.meal, missing_ingredients: [] };
+          const meal = d.meal;
           capturedMeal = meal;
           capturedIngredients = d.ingredients;
           setMeals([meal]);
@@ -396,7 +401,7 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : tUpload("error"));
       setView("upload");
     }
-  }, [images, tiredMode, selectedPattern, enabledRoles, locale, startAlternatives]);
+  }, [images, tiredMode, selectedPattern, enabledRoles, locale, settings, userRequest, user, startAlternatives]);
 
   // ── Rendering ───────────────────────────────────────────────────────────────
 
@@ -488,6 +493,8 @@ export default function HomePage() {
           )
         }
         onChangeAppliance={setSelectedAppliance}
+        userRequest={userRequest}
+        onChangeUserRequest={setUserRequest}
         onAnalyze={startAnalysis}
         onOpenSettings={() => setView("settings")}
       />
@@ -807,6 +814,8 @@ function UploadView({
   onSelectPattern,
   onToggleRole,
   onChangeAppliance,
+  userRequest,
+  onChangeUserRequest,
   onAnalyze,
   onOpenSettings,
 }: {
@@ -824,6 +833,8 @@ function UploadView({
   onSelectPattern: (p: MealPattern) => void;
   onToggleRole: (role: ComponentRole) => void;
   onChangeAppliance: (a: string) => void;
+  userRequest: string;
+  onChangeUserRequest: (v: string) => void;
   onAnalyze: () => void;
   onOpenSettings: () => void;
 }) {
@@ -997,6 +1008,17 @@ function UploadView({
         </div>
       )}
       {ownedAppliances.length <= 1 && <div className="mb-2" />}
+
+      <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
+        <p className="text-sm font-semibold text-gray-700 mb-2">{t("request_q")}</p>
+        <textarea
+          value={userRequest}
+          onChange={(e) => onChangeUserRequest(e.target.value)}
+          placeholder={t("request_placeholder")}
+          rows={2}
+          className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary resize-none bg-gray-50"
+        />
+      </div>
 
       <button
         onClick={onAnalyze}

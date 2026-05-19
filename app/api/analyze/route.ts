@@ -48,7 +48,9 @@ function buildPrompt(
   meal_time: string,
   history: MealHistory[],
   meal_components: ActiveComp[],
-  locale: string
+  locale: string,
+  has_hotcook: boolean,
+  user_request: string
 ): string {
   const mainComp = meal_components.find((c) => c.role === "main");
   const sideComp = meal_components.find((c) => c.role === "side");
@@ -60,26 +62,103 @@ function buildPrompt(
     soupComp ? `${soupComp.label}（スープ・汁物等）` : "",
   ].filter(Boolean).join("と");
 
+  const hotcookNote = has_hotcook
+    ? `- 調理器具: ホットクックあり。以下の料理を優先的に提案すること:
+  優先高: 無水調理（カレー・シチュー・煮込み）、煮物（肉じゃが・筑前煮・角煮）、スープ・汁物、蒸し物、低温調理
+  優先中: 水分が出てよい炒め物（もやし炒め・豚肉炒め・きのこ炒め）※手動炒めモードで対応可
+  提案しない: 揚げ物、焼き物（焦げ目が必要なもの）、シャキシャキ炒め（チャーハン・焼きそば・野菜炒め）`
+    : "";
+
+  const hasUserRequest = user_request.trim().length > 0;
+
   const langInstruction = locale === "en"
     ? "IMPORTANT: Write all text values in English (dish names, reasons, ingredient names, genre, etc.).\n\n"
     : "";
+
+  const missingIngredientsRule = hasUserRequest
+    ? `- リクエスト食材が画像から検出されなかった場合は必ず missing_ingredients に追加すること
+- matched_ingredients には画像で実際に検出された食材のみ入れること`
+    : `- missing_ingredients は必ず空配列 [] にすること
+- 買い物が必要な料理は絶対に提案しないこと
+- 今ある食材と常備調味料だけで完結すること`;
+
+  if (hasUserRequest) {
+    return `${langInstruction}あなたは家庭料理の専門家です。
+
+==========================================
+【最優先指示・絶対に守ること】
+ユーザーのリクエスト: 「${user_request.trim()}」
+==========================================
+
+以下の手順を1つずつ実行せよ:
+
+ステップ1: 上記リクエストを読み、ユーザーが「使いたい食材」または「作りたい料理」を特定せよ。
+  - 例:「白菜と肉を使いたい」→ 使いたい食材は [白菜, 肉]
+  - 例:「カレーを作りたい」→ 作りたい料理は カレー
+
+ステップ2: 冷蔵庫の写真を見て、検出できる食材をリストアップせよ。
+
+ステップ3: ステップ1で特定した「使いたい食材」「作りたい料理」を中心とした料理を1品提案せよ。
+  ⚠️ ステップ1の指定食材が画像にあろうとなかろうと、必ずその食材を使う料理を選ぶこと。
+  ⚠️ 別の食材を主役にすることは禁止。
+
+ステップ4: meal.matched_ingredients には「画像から検出された食材のうち、その料理に使うもの」のみを入れよ。
+ステップ5: meal.missing_ingredients には次のものをすべて入れよ:
+  - ユーザーが指定したが画像から検出されなかった食材（例:白菜が画像にない場合は ["白菜", ...]）
+  - その料理に必要だが画像にも常備調味料にもない食材
+
+【状況】
+- 食事: ${meal_time}
+- 余力: ${tired_mode ? "疲れている。15分以内・材料少なめで作れる簡単な料理を優先" : "通常"}
+- 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
+${hotcookNote}
+
+【常備調味料・基本食材（常に自宅にあるものとして扱う）】
+${ALWAYS_AVAILABLE_SEASONINGS}
+${buildHistorySection(history)}
+【出力ルール】
+${missingIngredientsRule}
+${sideComp || soupComp ? `- メインとサブ料理は食材が重複しすぎないよう、バランスよく選ぶこと` : ""}
+
+==========================================
+🔴 再度の念押し:
+ユーザーのリクエスト「${user_request.trim()}」を必ず守ること。
+リクエストで指定された食材/料理を主役にした料理以外は絶対に提案してはならない。
+==========================================
+
+出力はJSONのみ（コードブロック・説明文不要）:
+{
+  "ingredients": ["画像から検出した食材すべて"],
+  "meal": {
+    "type": "${tired_mode ? "quick" : "best"}",
+    "name": "リクエストの指定食材/料理を使った料理名",
+    "reason": "なぜこの料理か（1文・30字以内）",
+    "time_minutes": 数値,
+    "difficulty": "easy|medium|hard",
+    "matched_ingredients": ["画像で検出された食材のうち、料理に使うもの"],
+    "missing_ingredients": ["リクエスト食材で画像にないもの、+必要な追加食材"],
+    "genre": "和食|洋食|中華|エスニック",
+    "main_ingredient": "肉|魚|卵|野菜|麺|米",
+    "cooking_method": "炒め|煮込み|焼き|揚げ|蒸し|サラダ"${buildSubDishSection(meal_components)}
+  }
+}`;
+  }
+
   return `${langInstruction}あなたは家庭料理の専門家です。共働き家庭向けに献立を提案してください。
 
 状況:
 - 食事: ${meal_time}
 - 余力: ${tired_mode ? "疲れている。15分以内・材料少なめで作れる簡単な料理を優先" : "通常"}
 - 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
+${hotcookNote}
 
-【絶対条件】
-以下の調味料・基本食材は常に自宅にあるものとして扱ってください:
+【常備調味料・基本食材（常に自宅にあるものとして扱う）】
 ${ALWAYS_AVAILABLE_SEASONINGS}
 ${buildHistorySection(history)}
-冷蔵庫の写真から食材を認識し（調味料は ingredients に含めない）、今ある食材と上記の常備調味料だけで作れる献立を提案してください。
+冷蔵庫の写真から食材を認識し（調味料は ingredients に含めない）、献立を提案してください。
 
 【必須ルール】
-- missing_ingredients は必ず空配列 [] にすること
-- 買い物が必要な料理は絶対に提案しないこと
-- 今ある食材と常備調味料だけで完結すること
+${missingIngredientsRule}
 ${sideComp || soupComp ? `- メインとサブ料理は食材が重複しすぎないよう、バランスよく選ぶこと` : ""}
 
 出力はJSONのみ（コードブロック・説明文不要）:
@@ -126,7 +205,10 @@ async function streamWithGemini(
   send: SendFn
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash-lite",
+    generationConfig: { temperature: 0.2 },
+  });
 
   const imageParts = imageDataUrls.map((url) => ({
     inlineData: {
@@ -192,6 +274,8 @@ export async function POST(req: NextRequest) {
     meal_time = "夕食",
     meal_components = [{ role: "main", label: "メイン" }],
     locale = "ja",
+    appliances = [],
+    user_request = "",
   } = await req.json();
 
   if (!imageDataUrls?.length) {
@@ -217,7 +301,9 @@ export async function POST(req: NextRequest) {
       }
 
       const history = userId ? await getRecentMealHistory(userId) : [];
-      const prompt = buildPrompt(tired_mode, meal_time, history, meal_components as ActiveComp[], locale);
+      const has_hotcook = (appliances as string[]).includes("hotcook");
+      console.log("[analyze] user_request:", JSON.stringify(user_request));
+      const prompt = buildPrompt(tired_mode, meal_time, history, meal_components as ActiveComp[], locale, has_hotcook, user_request);
       let fullText = "";
 
       try {
@@ -247,6 +333,7 @@ export async function POST(req: NextRequest) {
           };
         };
         parsed.meal.id = randomUUID();
+        console.log("[analyze] meal.name:", parsed.meal.name, "matched:", parsed.meal.matched_ingredients, "missing:", parsed.meal.missing_ingredients);
 
         let sessionId: string | null = null;
         if (userId) {
