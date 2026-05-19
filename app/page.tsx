@@ -41,6 +41,12 @@ type UserSettings = {
 };
 
 type RecipeIngredient = { name: string; amount: string };
+type SubRecipe = {
+  title: string;
+  ingredients: RecipeIngredient[];
+  seasonings: RecipeIngredient[];
+  steps: string[];
+};
 type RecipeData = {
   title: string;
   servings: number;
@@ -49,6 +55,8 @@ type RecipeData = {
   steps: string[];
   hotcook_menu?: string[];
   tips?: string;
+  fukusai_recipe?: SubRecipe;
+  shirumono_recipe?: SubRecipe;
 };
 
 const MAX_IMAGES = 5;
@@ -240,6 +248,8 @@ export default function HomePage() {
           servings: settings?.servings ?? 2,
           appliances: [selectedAppliance],
           ngFoods: settings?.ng_foods ?? "",
+          fukusai: meal.fukusai ?? null,
+          shirumono: meal.shirumono ?? null,
         }),
       });
       const data: RecipeData = await res.json();
@@ -969,6 +979,68 @@ function AnalyzingView({
 
 // ─── Recipe view ──────────────────────────────────────────────────────────────
 
+function SubRecipeCard({
+  label,
+  icon,
+  sub,
+}: {
+  label: string;
+  icon: string;
+  sub: SubRecipe;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className="px-4 pt-4 pb-2">
+        <p className="text-xs font-semibold text-gray-400 mb-1">{icon} {label}</p>
+        <p className="font-bold text-gray-900">{sub.title}</p>
+      </div>
+      <div className="px-4 pb-2">
+        {sub.ingredients?.length > 0 && (
+          <div className="mb-3">
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">材料</p>
+            <div className="space-y-1">
+              {sub.ingredients.map((item, i) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span className="text-gray-700">{item.name}</span>
+                  <span className="text-gray-400">{item.amount}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {sub.seasonings?.length > 0 && (
+          <div className="mb-3">
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">調味料</p>
+            <div className="space-y-1">
+              {sub.seasonings.map((item, i) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span className="text-gray-700">{item.name}</span>
+                  <span className="text-gray-400">{item.amount}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {sub.steps?.length > 0 && (
+          <div className="pb-2">
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">作り方</p>
+            <div className="space-y-2">
+              {sub.steps.map((step, i) => (
+                <div key={i} className="flex gap-2">
+                  <span className="w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">
+                    {i + 1}
+                  </span>
+                  <p className="text-sm text-gray-700 leading-relaxed">{step}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function RecipeView({
   recipe,
   loading,
@@ -978,6 +1050,8 @@ function RecipeView({
   loading: boolean;
   onBack: () => void;
 }) {
+  const hasSubDishes = recipe?.fukusai_recipe || recipe?.shirumono_recipe;
+
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 bg-white">
@@ -996,6 +1070,11 @@ function RecipeView({
         <>
           <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
             <p className="text-sm text-gray-400">{recipe.servings}人分</p>
+
+            {/* 主菜ラベル（副菜・汁物がある場合のみ表示） */}
+            {hasSubDishes && (
+              <p className="text-xs font-semibold text-primary">🍖 主菜</p>
+            )}
 
             {/* Ingredients */}
             <div className="bg-white rounded-2xl p-4 border border-gray-100">
@@ -1064,6 +1143,16 @@ function RecipeView({
               <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
                 <p className="text-sm text-gray-700">💡 {recipe.tips}</p>
               </div>
+            )}
+
+            {/* 副菜レシピ */}
+            {recipe.fukusai_recipe && (
+              <SubRecipeCard label="副菜" icon="🥗" sub={recipe.fukusai_recipe} />
+            )}
+
+            {/* 汁物レシピ */}
+            {recipe.shirumono_recipe && (
+              <SubRecipeCard label="汁物" icon="🍵" sub={recipe.shirumono_recipe} />
             )}
 
             <p className="text-xs text-gray-400 text-center pb-2">
