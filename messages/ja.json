@@ -13,7 +13,7 @@
     "next": "次へ →",
     "back": "← 戻る",
     "complete": "設定完了",
-    "hotcook": "ホットクック",
+    "hotcook": "自動調理鍋",
     "pan": "フライパン・鍋",
     "microwave": "電子レンジ",
     "oven": "オーブン・グリル"
@@ -31,7 +31,7 @@
     "logout": "ログアウト",
     "language": "言語 / Language",
     "lang_ja": "日本語",
-    "hotcook": "ホットクック",
+    "hotcook": "自動調理鍋",
     "pan": "フライパン・鍋",
     "microwave": "電子レンジ",
     "oven": "オーブン・グリル"
@@ -53,7 +53,7 @@
     "request_q": "リクエスト（任意）",
     "request_placeholder": "例: カレーを作りたい、白菜を使って...",
     "analyze": "解析する",
-    "hotcook": "ホットクック",
+    "hotcook": "自動調理鍋",
     "pan": "フライパン",
     "microwave": "レンジ",
     "oven": "オーブン"
@@ -81,7 +81,7 @@
     "servings": "{count}人分",
     "ingredients": "材料",
     "seasonings": "調味料",
-    "hotcook": "🥘 ホットクック操作",
+    "hotcook": "🥘 自動調理鍋の操作",
     "steps": "作り方",
     "thinking": "レシピを考えています...",
     "made_it": "👍 作った！",
