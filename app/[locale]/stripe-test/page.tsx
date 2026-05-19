@@ -1,4 +1,6 @@
-import StripeTestClient from "./client";
+import dynamic from "next/dynamic";
+
+const StripeTestClient = dynamic(() => import("./client"), { ssr: false });
 
 export default async function StripeTestPage({
   params,
