@@ -3,13 +3,19 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import {
+  MEAL_PATTERNS,
+  DEFAULT_PATTERN,
+  getActiveComponents,
+  getComponentLabel,
+  type MealPattern,
+  type ComponentRole,
+} from "@/lib/meal-patterns";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type AppView = "onboarding" | "upload" | "analyzing" | "result" | "recipe" | "settings" | "login";
 type AnalyzingPhase = "scanning" | "generating";
-
-type MealComponent = "主菜" | "副菜" | "汁物";
 
 type SubDish = {
   name: string;
@@ -28,8 +34,8 @@ type Meal = {
   genre: string;
   main_ingredient: string;
   cooking_method: string;
-  fukusai?: SubDish;
-  shirumono?: SubDish;
+  side?: SubDish;
+  soup?: SubDish;
 };
 
 type ImageItem = { file: File; dataUrl: string };
@@ -55,8 +61,8 @@ type RecipeData = {
   steps: string[];
   hotcook_menu?: string[];
   tips?: string;
-  fukusai_recipe?: SubRecipe;
-  shirumono_recipe?: SubRecipe;
+  side_recipe?: SubRecipe;
+  soup_recipe?: SubRecipe;
 };
 
 const MAX_IMAGES = 5;
@@ -145,7 +151,8 @@ export default function HomePage() {
   const [recipe, setRecipe] = useState<RecipeData | null>(null);
   const [recipeLoading, setRecipeLoading] = useState(false);
   const [selectedAppliance, setSelectedAppliance] = useState<string>("pan");
-  const [mealComponents, setMealComponents] = useState<MealComponent[]>(["主菜"]);
+  const [selectedPattern, setSelectedPattern] = useState<MealPattern>(DEFAULT_PATTERN);
+  const [enabledRoles, setEnabledRoles] = useState<ComponentRole[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loginPrompt, setLoginPrompt] = useState<{ show: boolean; reason: "favorite" | "limit" }>({ show: false, reason: "favorite" });
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -248,8 +255,12 @@ export default function HomePage() {
           servings: settings?.servings ?? 2,
           appliances: [selectedAppliance],
           ngFoods: settings?.ng_foods ?? "",
-          fukusai: meal.fukusai ?? null,
-          shirumono: meal.shirumono ?? null,
+          side: meal.side
+            ? { ...meal.side, label: getComponentLabel(selectedPattern, "side", "ja") }
+            : null,
+          soup: meal.soup
+            ? { ...meal.soup, label: getComponentLabel(selectedPattern, "soup", "ja") }
+            : null,
         }),
       });
       const data: RecipeData = await res.json();
@@ -275,7 +286,7 @@ export default function HomePage() {
             meal_1_name: meal1.name,
             meal_1_type: meal1.type,
             session_id: sid,
-            meal_components: mealComponents,
+            meal_components: getActiveComponents(selectedPattern, enabledRoles, "ja"),
           }),
         });
         await readSSE(res, (type, data) => {
@@ -288,7 +299,7 @@ export default function HomePage() {
         // Phase B の失敗はサイレントに無視（1案目は既に表示済み）
       }
     },
-    [tiredMode, mealComponents]
+    [tiredMode, selectedPattern, enabledRoles]
   );
 
   // ── Phase A: analyze ────────────────────────────────────────────────────────
@@ -334,7 +345,7 @@ export default function HomePage() {
           imageDataUrls: images.map((i) => i.dataUrl),
           tired_mode: tiredMode,
           meal_time: "夕食",
-          meal_components: mealComponents,
+          meal_components: getActiveComponents(selectedPattern, enabledRoles, "ja"),
         }),
       });
 
@@ -383,7 +394,7 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
       setView("upload");
     }
-  }, [images, tiredMode, mealComponents, startAlternatives]);
+  }, [images, tiredMode, selectedPattern, enabledRoles, startAlternatives]);
 
   // ── Rendering ───────────────────────────────────────────────────────────────
 
@@ -427,6 +438,7 @@ export default function HomePage() {
           onSelectMeal={fetchRecipe}
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
+          selectedPattern={selectedPattern}
         />
         {loginPrompt.show && (
           <LoginPromptModal
@@ -445,6 +457,7 @@ export default function HomePage() {
         recipe={recipe}
         loading={recipeLoading}
         onBack={() => setView("result")}
+        selectedPattern={selectedPattern}
       />
     );
   }
@@ -454,7 +467,8 @@ export default function HomePage() {
       <UploadView
         images={images}
         tiredMode={tiredMode}
-        mealComponents={mealComponents}
+        selectedPattern={selectedPattern}
+        enabledRoles={enabledRoles}
         ownedAppliances={settings?.appliances ?? []}
         selectedAppliance={selectedAppliance}
         error={error}
@@ -462,11 +476,13 @@ export default function HomePage() {
         onAddFiles={addFiles}
         onRemoveImage={removeImage}
         onToggleTired={() => setTiredMode((v) => !v)}
-        onToggleMealComponent={(c) =>
-          setMealComponents((prev) =>
-            prev.includes(c)
-              ? prev.length > 1 ? prev.filter((x) => x !== c) : prev
-              : [...prev, c]
+        onSelectPattern={(p) => {
+          setSelectedPattern(p);
+          setEnabledRoles([]);
+        }}
+        onToggleRole={(role) =>
+          setEnabledRoles((prev) =>
+            prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
           )
         }
         onChangeAppliance={setSelectedAppliance}
@@ -740,16 +756,11 @@ const APPLIANCE_LABELS: Record<string, { label: string; icon: string }> = {
   oven: { label: "オーブン", icon: "🔥" },
 };
 
-const MEAL_COMPONENT_OPTIONS: { id: MealComponent; icon: string }[] = [
-  { id: "主菜", icon: "🍖" },
-  { id: "副菜", icon: "🥗" },
-  { id: "汁物", icon: "🍵" },
-];
-
 function UploadView({
   images,
   tiredMode,
-  mealComponents,
+  selectedPattern,
+  enabledRoles,
   ownedAppliances,
   selectedAppliance,
   error,
@@ -757,14 +768,16 @@ function UploadView({
   onAddFiles,
   onRemoveImage,
   onToggleTired,
-  onToggleMealComponent,
+  onSelectPattern,
+  onToggleRole,
   onChangeAppliance,
   onAnalyze,
   onOpenSettings,
 }: {
   images: ImageItem[];
   tiredMode: boolean;
-  mealComponents: MealComponent[];
+  selectedPattern: MealPattern;
+  enabledRoles: ComponentRole[];
   ownedAppliances: string[];
   selectedAppliance: string;
   error: string | null;
@@ -772,7 +785,8 @@ function UploadView({
   onAddFiles: (files: FileList | File[]) => void;
   onRemoveImage: (idx: number) => void;
   onToggleTired: () => void;
-  onToggleMealComponent: (c: MealComponent) => void;
+  onSelectPattern: (p: MealPattern) => void;
+  onToggleRole: (role: ComponentRole) => void;
   onChangeAppliance: (a: string) => void;
   onAnalyze: () => void;
   onOpenSettings: () => void;
@@ -880,25 +894,47 @@ function UploadView({
         </div>
       </div>
 
-      {/* Meal component selector */}
+      {/* Meal pattern selector */}
       <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
-        <p className="text-sm font-semibold text-gray-700 mb-3">献立の構成は？</p>
-        <div className="flex gap-2">
-          {MEAL_COMPONENT_OPTIONS.map(({ id, icon }) => (
+        <p className="text-sm font-semibold text-gray-700 mb-3">献立スタイルは？</p>
+        <div className="grid grid-cols-3 gap-2">
+          {MEAL_PATTERNS.map((pattern) => (
             <button
-              key={id}
-              onClick={() => onToggleMealComponent(id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition ${
-                mealComponents.includes(id)
+              key={pattern.id}
+              onClick={() => onSelectPattern(pattern)}
+              className={`flex flex-col items-center py-2.5 px-1 rounded-xl text-sm font-semibold transition ${
+                selectedPattern.id === pattern.id
                   ? "bg-primary text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
-              <span>{icon}</span>
-              <span>{id}</span>
+              <span className="text-lg">{pattern.emoji}</span>
+              <span className="text-xs mt-0.5">{pattern.label.ja}</span>
             </button>
           ))}
         </div>
+
+        {/* Optional component toggles */}
+        {selectedPattern.components.filter((c) => c.optional).length > 0 && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500 mb-2">追加する品は？</p>
+            <div className="flex gap-2">
+              {selectedPattern.components.filter((c) => c.optional).map((comp) => (
+                <button
+                  key={comp.role}
+                  onClick={() => onToggleRole(comp.role)}
+                  className={`flex-1 py-2 rounded-xl text-sm font-semibold transition ${
+                    enabledRoles.includes(comp.role)
+                      ? "bg-primary text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {comp.label.ja}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Appliance selector (only when user owns multiple) */}
@@ -1045,12 +1081,17 @@ function RecipeView({
   recipe,
   loading,
   onBack,
+  selectedPattern,
 }: {
   recipe: RecipeData | null;
   loading: boolean;
   onBack: () => void;
+  selectedPattern: MealPattern;
 }) {
-  const hasSubDishes = recipe?.fukusai_recipe || recipe?.shirumono_recipe;
+  const hasSubDishes = recipe?.side_recipe || recipe?.soup_recipe;
+  const mainLabel = getComponentLabel(selectedPattern, "main", "ja");
+  const sideLabel = getComponentLabel(selectedPattern, "side", "ja");
+  const soupLabel = getComponentLabel(selectedPattern, "soup", "ja");
 
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
@@ -1071,9 +1112,9 @@ function RecipeView({
           <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
             <p className="text-sm text-gray-400">{recipe.servings}人分</p>
 
-            {/* 主菜ラベル（副菜・汁物がある場合のみ表示） */}
+            {/* メインラベル（サブ皿がある場合のみ表示） */}
             {hasSubDishes && (
-              <p className="text-xs font-semibold text-primary">🍖 主菜</p>
+              <p className="text-xs font-semibold text-primary">🍖 {mainLabel}</p>
             )}
 
             {/* Ingredients */}
@@ -1145,14 +1186,14 @@ function RecipeView({
               </div>
             )}
 
-            {/* 副菜レシピ */}
-            {recipe.fukusai_recipe && (
-              <SubRecipeCard label="副菜" icon="🥗" sub={recipe.fukusai_recipe} />
+            {/* サイドレシピ */}
+            {recipe.side_recipe && (
+              <SubRecipeCard label={sideLabel} icon="🥗" sub={recipe.side_recipe} />
             )}
 
-            {/* 汁物レシピ */}
-            {recipe.shirumono_recipe && (
-              <SubRecipeCard label="汁物" icon="🍵" sub={recipe.shirumono_recipe} />
+            {/* スープレシピ */}
+            {recipe.soup_recipe && (
+              <SubRecipeCard label={soupLabel} icon="🍵" sub={recipe.soup_recipe} />
             )}
 
             <p className="text-xs text-gray-400 text-center pb-2">
@@ -1181,6 +1222,7 @@ function ResultView({
   onSelectMeal,
   favorites,
   onToggleFavorite,
+  selectedPattern,
 }: {
   meals: Meal[];
   activeMealIdx: number;
@@ -1189,6 +1231,7 @@ function ResultView({
   onSelectMeal: (meal: Meal) => void;
   favorites: string[];
   onToggleFavorite: (meal: Meal) => void;
+  selectedPattern: MealPattern;
 }) {
   const meal = meals[activeMealIdx];
   if (!meal) return null;
@@ -1196,6 +1239,9 @@ function ResultView({
   const canGoNext = activeMealIdx < meals.length - 1;
   const totalSlots = 3;
   const isFavorite = favorites.includes(meal.id);
+  const mainLabel = getComponentLabel(selectedPattern, "main", "ja");
+  const sideLabel = getComponentLabel(selectedPattern, "side", "ja");
+  const soupLabel = getComponentLabel(selectedPattern, "soup", "ja");
 
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
@@ -1213,9 +1259,9 @@ function ResultView({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
-        {/* 主菜 */}
+        {/* Main */}
         <div>
-          <p className="text-xs font-semibold text-primary mb-1">🍖 主菜</p>
+          <p className="text-xs font-semibold text-primary mb-1">🍖 {mainLabel}</p>
           <p className="text-2xl font-bold text-gray-900">{meal.name}</p>
           <p className="text-gray-500 text-sm mt-1">{meal.reason}</p>
           <div className="flex gap-3 mt-2">
@@ -1227,24 +1273,24 @@ function ResultView({
           </div>
         </div>
 
-        {/* 副菜 */}
-        {meal.fukusai && (
+        {/* Side */}
+        {meal.side && (
           <div className="bg-white rounded-2xl p-4 border border-gray-100">
-            <p className="text-xs font-semibold text-green-600 mb-1">🥗 副菜</p>
-            <p className="font-bold text-gray-900">{meal.fukusai.name}</p>
-            {meal.fukusai.matched_ingredients?.length > 0 && (
-              <p className="text-sm text-gray-500 mt-1">{meal.fukusai.matched_ingredients.join("・")}</p>
+            <p className="text-xs font-semibold text-green-600 mb-1">🥗 {sideLabel}</p>
+            <p className="font-bold text-gray-900">{meal.side.name}</p>
+            {meal.side.matched_ingredients?.length > 0 && (
+              <p className="text-sm text-gray-500 mt-1">{meal.side.matched_ingredients.join("・")}</p>
             )}
           </div>
         )}
 
-        {/* 汁物 */}
-        {meal.shirumono && (
+        {/* Soup */}
+        {meal.soup && (
           <div className="bg-white rounded-2xl p-4 border border-gray-100">
-            <p className="text-xs font-semibold text-blue-500 mb-1">🍵 汁物</p>
-            <p className="font-bold text-gray-900">{meal.shirumono.name}</p>
-            {meal.shirumono.matched_ingredients?.length > 0 && (
-              <p className="text-sm text-gray-500 mt-1">{meal.shirumono.matched_ingredients.join("・")}</p>
+            <p className="text-xs font-semibold text-blue-500 mb-1">🍵 {soupLabel}</p>
+            <p className="font-bold text-gray-900">{meal.soup.name}</p>
+            {meal.soup.matched_ingredients?.length > 0 && (
+              <p className="text-sm text-gray-500 mt-1">{meal.soup.matched_ingredients.join("・")}</p>
             )}
           </div>
         )}

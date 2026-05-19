@@ -3,19 +3,23 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { randomUUID } from "crypto";
 import { getAuthUserId, saveMealHistory } from "@/lib/supabase/db";
 
+type ActiveComp = { role: string; label: string };
+
 const ALWAYS_AVAILABLE_SEASONINGS = `
 醤油・塩・胡椒・砂糖・みりん・料理酒・酢・サラダ油・ごま油・バター・マヨネーズ・ケチャップ
 味噌・だし（和風・コンソメ・鶏がら）・小麦粉・片栗粉・オリーブオイル・めんつゆ・ポン酢
 ウスターソース・ソース・豆板醤・オイスターソース・生姜（チューブ）・にんにく（チューブ）
 `.trim();
 
-function buildSubDishFields(meal_components: string[]): string {
+function buildSubDishFields(components: ActiveComp[]): string {
   const parts: string[] = [];
-  if (meal_components.includes("副菜")) {
-    parts.push(`      "fukusai": { "name": "副菜名", "matched_ingredients": ["使う食材1", ...] }`);
+  const side = components.find((c) => c.role === "side");
+  const soup = components.find((c) => c.role === "soup");
+  if (side) {
+    parts.push(`      "side": { "name": "${side.label}名", "matched_ingredients": ["使う食材1", ...] }`);
   }
-  if (meal_components.includes("汁物")) {
-    parts.push(`      "shirumono": { "name": "汁物名", "matched_ingredients": ["使う食材1", ...] }`);
+  if (soup) {
+    parts.push(`      "soup": { "name": "${soup.label}名", "matched_ingredients": ["使う食材1", ...] }`);
   }
   return parts.length ? ",\n" + parts.join(",\n") : "";
 }
@@ -25,15 +29,20 @@ function buildPrompt(
   tired_mode: boolean,
   meal_1_name: string,
   meal_1_type: string,
-  meal_components: string[]
+  meal_components: ActiveComp[]
 ): string {
   const [type2, type3] = tired_mode
     ? ["no_shopping", "best"]
     : ["quick", "no_shopping"];
 
+  const mainComp = meal_components.find((c) => c.role === "main");
+  const sideComp = meal_components.find((c) => c.role === "side");
+  const soupComp = meal_components.find((c) => c.role === "soup");
+  const mainLabel = mainComp?.label ?? "メイン";
+
   const componentNote = [
-    meal_components.includes("副菜") ? "副菜（小鉢1品）" : "",
-    meal_components.includes("汁物") ? "汁物" : "",
+    sideComp ? sideComp.label : "",
+    soupComp ? soupComp.label : "",
   ].filter(Boolean).join("・");
 
   return `あなたは家庭料理の専門家です。
@@ -45,10 +54,10 @@ ${ALWAYS_AVAILABLE_SEASONINGS}
 冷蔵庫にある食材:
 ${ingredients.join("、")}
 
-献立構成: 主菜${componentNote ? `・${componentNote}` : "のみ"}
+献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
 
 「${meal_1_name}」（${meal_1_type}）は既に提案済みです。
-上記の食材と常備調味料だけで作れる主菜をあと2案提案してください。
+上記の食材と常備調味料だけで作れる${mainLabel}をあと2案提案してください。
 
 条件:
 - meal_2 の type: "${type2}"
@@ -65,7 +74,7 @@ ${ingredients.join("、")}
   "meals": [
     {
       "type": "${type2}",
-      "name": "主菜名",
+      "name": "${mainLabel}名",
       "reason": "なぜこの料理か（1文・30字以内）",
       "time_minutes": 数値,
       "difficulty": "easy|medium|hard",
@@ -77,7 +86,7 @@ ${ingredients.join("、")}
     },
     {
       "type": "${type3}",
-      "name": "主菜名",
+      "name": "${mainLabel}名",
       "reason": "なぜこの料理か（1文・30字以内）",
       "time_minutes": 数値,
       "difficulty": "easy|medium|hard",
@@ -103,7 +112,7 @@ export async function POST(req: NextRequest) {
     meal_1_name,
     meal_1_type,
     session_id,
-    meal_components = ["主菜"],
+    meal_components = [{ role: "main", label: "メイン" }],
   } = await req.json();
 
   if (!ingredients?.length) {
@@ -124,7 +133,13 @@ export async function POST(req: NextRequest) {
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-        const prompt = buildPrompt(ingredients, tired_mode, meal_1_name ?? "", meal_1_type ?? "best", meal_components);
+        const prompt = buildPrompt(
+          ingredients,
+          tired_mode,
+          meal_1_name ?? "",
+          meal_1_type ?? "best",
+          meal_components as ActiveComp[]
+        );
 
         const result = await model.generateContent(prompt);
         const fullText = result.response.text();
@@ -144,7 +159,6 @@ export async function POST(req: NextRequest) {
           send("meal", { meal });
         }
 
-        // ログインユーザーかつ session_id がある場合のみ履歴保存
         const userId = await getAuthUserId();
         if (userId && session_id && parsed.meals?.length) {
           await saveMealHistory({
