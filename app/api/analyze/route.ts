@@ -78,10 +78,9 @@ function buildPrompt(
   const missingIngredientsRule = hasUserRequest
     ? `- リクエスト食材が画像から検出されなかった場合は必ず missing_ingredients に追加すること
 - matched_ingredients には画像で実際に検出された食材のみ入れること`
-    : `- missing_ingredients は必ず空配列 [] にすること
-- 買い物が必要な料理は絶対に提案しないこと
-- 今ある食材と常備調味料だけで完結すること
-- 【厳守】料理名・料理内容に登場する食材（野菜・肉・魚など）は、必ず matched_ingredients に含まれているか、常備調味料リストにあるものだけを使うこと。検出されていない食材を料理名に含めることは禁止`;
+    : `- 今ある食材と常備調味料だけで作れる料理を最優先で選ぶこと
+- 【絶対厳守】料理名・料理に使う食材（野菜・肉・魚・豆腐など）が matched_ingredients にも常備調味料リストにもない場合、その食材を必ず missing_ingredients に追加すること。絶対に隠蔽してはならない
+- 【絶対厳守】missing_ingredients を [] にするときは、料理名・料理内容に冷蔵庫にない食材が一切含まれていないことを確認してから出力すること`;
 
   if (hasUserRequest) {
     return `${langInstruction}あなたは家庭料理の専門家です。
