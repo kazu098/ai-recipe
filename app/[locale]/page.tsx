@@ -13,6 +13,7 @@ import {
   type MealPattern,
   type ComponentRole,
 } from "@/lib/meal-patterns";
+import { Settings, ArrowLeft, Camera, Heart, Zap, ChefHat } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -701,7 +702,7 @@ function SettingsView({
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 bg-white">
-        <button onClick={onBack} className="text-gray-500 text-lg p-1">←</button>
+        <button onClick={onBack} className="text-gray-500 p-1 hover:text-gray-700 transition"><ArrowLeft size={20} /></button>
         <h2 className="font-bold text-gray-800 text-lg">{t("title")}</h2>
       </div>
 
@@ -841,14 +842,13 @@ function UploadView({
           <h1 className="text-2xl font-extrabold text-white tracking-tight">Snapmeal</h1>
           <button
             onClick={onOpenSettings}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white text-xl"
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white"
             aria-label="Settings"
           >
-            ⚙️
+            <Settings size={20} />
           </button>
         </div>
         <p className="text-base font-semibold text-white">{t("greeting")}</p>
-        <p className="text-sm text-white/70 mt-0.5">{t("subtitle")}</p>
       </div>
 
       <div className="px-4 pt-6 flex flex-col flex-1">
@@ -868,7 +868,7 @@ function UploadView({
         {images.length === 0 ? (
           <div className="flex flex-col items-center py-6 gap-3">
             <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center">
-              <span className="text-4xl">📷</span>
+              <Camera size={36} className="text-primary" />
             </div>
             <p className="font-semibold text-gray-700">{t("photo_cta")}</p>
             <p className="text-sm text-gray-400">{t("gallery")}</p>
@@ -913,20 +913,20 @@ function UploadView({
         <p className="text-sm font-semibold text-gray-700 mb-3">{t("energy_q")}</p>
         <div className="flex gap-2">
           <button
-            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition ${
+            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-1.5 ${
               tiredMode ? "bg-primary text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
             onClick={() => !tiredMode && onToggleTired()}
           >
-            {t("tired")}
+            <Zap size={14} />{t("tired")}
           </button>
           <button
-            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition ${
+            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-1.5 ${
               !tiredMode ? "bg-accent text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
             onClick={() => tiredMode && onToggleTired()}
           >
-            {t("energized")}
+            <ChefHat size={14} />{t("energized")}
           </button>
         </div>
       </div>
@@ -1138,7 +1138,7 @@ function RecipeView({
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 bg-white">
-        <button onClick={onBack} className="text-gray-500 text-lg p-1">←</button>
+        <button onClick={onBack} className="text-gray-500 p-1 hover:text-gray-700 transition"><ArrowLeft size={20} /></button>
         <h2 className="font-bold text-gray-800 text-lg truncate">
           {loading ? t("generating_title") : (recipe?.title ?? t("default_title"))}
         </h2>
@@ -1283,20 +1283,20 @@ function ResultView({
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 bg-white">
-        <button onClick={onBack} className="text-gray-500 text-lg p-1">←</button>
+        <button onClick={onBack} className="text-gray-500 p-1 hover:text-gray-700 transition"><ArrowLeft size={20} /></button>
         <h2 className="font-bold text-gray-800 text-lg">{t("title")}</h2>
         <button
           onClick={() => onToggleFavorite(meal)}
-          className="ml-auto text-2xl transition-transform active:scale-90"
+          className="ml-auto p-1 transition-transform active:scale-90"
           aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
-          {isFavorite ? "❤️" : "🤍"}
+          <Heart size={22} className={isFavorite ? "fill-red-500 text-red-500" : "text-gray-300"} />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
         <div>
-          <p className="text-xs font-semibold text-primary mb-1">🍖 {mainLabel}</p>
+          <p className="text-xs font-semibold text-primary mb-1 uppercase tracking-wide">{mainLabel}</p>
           <p className="text-2xl font-bold text-gray-900">{meal.name}</p>
           <p className="text-gray-500 text-sm mt-1">{meal.reason}</p>
           <div className="flex gap-3 mt-2">
@@ -1477,7 +1477,7 @@ function LoginView({ onBack }: { onBack: () => void }) {
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto px-6">
       <div className="flex items-center pt-6 pb-2">
-        <button onClick={onBack} className="text-gray-500 text-lg p-1">←</button>
+        <button onClick={onBack} className="text-gray-500 p-1 hover:text-gray-700 transition"><ArrowLeft size={20} /></button>
       </div>
       <div className="flex-1 flex flex-col items-center justify-center">
         <div className="w-full">
