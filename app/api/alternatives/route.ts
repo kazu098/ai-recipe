@@ -9,15 +9,32 @@ const ALWAYS_AVAILABLE_SEASONINGS = `
 ウスターソース・ソース・豆板醤・オイスターソース・生姜（チューブ）・にんにく（チューブ）
 `.trim();
 
+function buildSubDishFields(meal_components: string[]): string {
+  const parts: string[] = [];
+  if (meal_components.includes("副菜")) {
+    parts.push(`      "fukusai": { "name": "副菜名", "matched_ingredients": ["使う食材1", ...] }`);
+  }
+  if (meal_components.includes("汁物")) {
+    parts.push(`      "shirumono": { "name": "汁物名", "matched_ingredients": ["使う食材1", ...] }`);
+  }
+  return parts.length ? ",\n" + parts.join(",\n") : "";
+}
+
 function buildPrompt(
   ingredients: string[],
   tired_mode: boolean,
   meal_1_name: string,
-  meal_1_type: string
+  meal_1_type: string,
+  meal_components: string[]
 ): string {
   const [type2, type3] = tired_mode
     ? ["no_shopping", "best"]
     : ["quick", "no_shopping"];
+
+  const componentNote = [
+    meal_components.includes("副菜") ? "副菜（小鉢1品）" : "",
+    meal_components.includes("汁物") ? "汁物" : "",
+  ].filter(Boolean).join("・");
 
   return `あなたは家庭料理の専門家です。
 
@@ -28,8 +45,10 @@ ${ALWAYS_AVAILABLE_SEASONINGS}
 冷蔵庫にある食材:
 ${ingredients.join("、")}
 
+献立構成: 主菜${componentNote ? `・${componentNote}` : "のみ"}
+
 「${meal_1_name}」（${meal_1_type}）は既に提案済みです。
-上記の食材と常備調味料だけで作れる料理をあと2案提案してください。
+上記の食材と常備調味料だけで作れる主菜をあと2案提案してください。
 
 条件:
 - meal_2 の type: "${type2}"
@@ -46,7 +65,7 @@ ${ingredients.join("、")}
   "meals": [
     {
       "type": "${type2}",
-      "name": "料理名",
+      "name": "主菜名",
       "reason": "なぜこの料理か（1文・30字以内）",
       "time_minutes": 数値,
       "difficulty": "easy|medium|hard",
@@ -54,11 +73,11 @@ ${ingredients.join("、")}
       "missing_ingredients": [],
       "genre": "和食|洋食|中華|エスニック",
       "main_ingredient": "肉|魚|卵|野菜|麺|米",
-      "cooking_method": "炒め|煮込み|焼き|揚げ|蒸し|サラダ"
+      "cooking_method": "炒め|煮込み|焼き|揚げ|蒸し|サラダ"${buildSubDishFields(meal_components)}
     },
     {
       "type": "${type3}",
-      "name": "料理名",
+      "name": "主菜名",
       "reason": "なぜこの料理か（1文・30字以内）",
       "time_minutes": 数値,
       "difficulty": "easy|medium|hard",
@@ -66,7 +85,7 @@ ${ingredients.join("、")}
       "missing_ingredients": [],
       "genre": "和食|洋食|中華|エスニック",
       "main_ingredient": "肉|魚|卵|野菜|麺|米",
-      "cooking_method": "炒め|煮込み|焼き|揚げ|蒸し|サラダ"
+      "cooking_method": "炒め|煮込み|焼き|揚げ|蒸し|サラダ"${buildSubDishFields(meal_components)}
     }
   ]
 }`;
@@ -84,6 +103,7 @@ export async function POST(req: NextRequest) {
     meal_1_name,
     meal_1_type,
     session_id,
+    meal_components = ["主菜"],
   } = await req.json();
 
   if (!ingredients?.length) {
@@ -104,7 +124,7 @@ export async function POST(req: NextRequest) {
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-        const prompt = buildPrompt(ingredients, tired_mode, meal_1_name ?? "", meal_1_type ?? "best");
+        const prompt = buildPrompt(ingredients, tired_mode, meal_1_name ?? "", meal_1_type ?? "best", meal_components);
 
         const result = await model.generateContent(prompt);
         const fullText = result.response.text();
