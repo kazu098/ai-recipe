@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslations, useLocale } from "next-intl";
+import { useRouter, usePathname } from "@/i18n/navigation";
 import {
   MEAL_PATTERNS,
   DEFAULT_PATTERN,
@@ -67,7 +69,6 @@ type RecipeData = {
 
 const MAX_IMAGES = 5;
 const GUEST_LIMIT = 5;
-const DIFFICULTY_LABEL = { easy: "かんたん", medium: "普通", hard: "本格" } as const;
 
 function getGuestCount(): number {
   return parseInt(localStorage.getItem("snapmeal_guest_count") ?? "0", 10);
@@ -158,12 +159,13 @@ export default function HomePage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+  const locale = useLocale() as "ja" | "en";
+  const tUpload = useTranslations("upload");
 
   const defaultAppliance = (s: UserSettings) =>
     s.appliances.includes("hotcook") ? "hotcook" : (s.appliances[0] ?? "pan");
 
   useEffect(() => {
-    // ゲストでも使えるようにローカルストレージから設定を読む
     try {
       const stored = localStorage.getItem("snapmeal_settings");
       if (stored) {
@@ -179,7 +181,6 @@ export default function HomePage() {
       setSettingsLoaded(true);
     }
 
-    // ログイン済みの場合はユーザー情報をセット（任意）
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) setUser(session.user);
@@ -188,7 +189,6 @@ export default function HomePage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) {
         setUser(session.user);
-        // ログイン成功: ゲスト回数リセット・プロンプト閉じる
         localStorage.removeItem("snapmeal_guest_count");
         setLoginPrompt({ show: false, reason: "favorite" });
         setView((v) => v === "login" ? "upload" : v);
@@ -235,13 +235,12 @@ export default function HomePage() {
     setRecipe(null);
     setView("recipe");
 
-    // was_selected を記録（ログインユーザーのみ）
     if (sessionId) {
       fetch(`/api/sessions/${sessionId}/select`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ meal_name: meal.name }),
-      }).catch(() => { /* サイレント失敗 */ });
+      }).catch(() => { /* silent */ });
     }
     try {
       const res = await fetch("/api/recipe", {
@@ -256,11 +255,12 @@ export default function HomePage() {
           appliances: [selectedAppliance],
           ngFoods: settings?.ng_foods ?? "",
           side: meal.side
-            ? { ...meal.side, label: getComponentLabel(selectedPattern, "side", "ja") }
+            ? { ...meal.side, label: getComponentLabel(selectedPattern, "side", locale) }
             : null,
           soup: meal.soup
-            ? { ...meal.soup, label: getComponentLabel(selectedPattern, "soup", "ja") }
+            ? { ...meal.soup, label: getComponentLabel(selectedPattern, "soup", locale) }
             : null,
+          locale,
         }),
       });
       const data: RecipeData = await res.json();
@@ -270,7 +270,7 @@ export default function HomePage() {
     } finally {
       setRecipeLoading(false);
     }
-  }, [settings, selectedAppliance]);
+  }, [settings, selectedAppliance, selectedPattern, locale, sessionId]);
 
   // ── Phase B: alternatives (background) ─────────────────────────────────────
 
@@ -286,7 +286,8 @@ export default function HomePage() {
             meal_1_name: meal1.name,
             meal_1_type: meal1.type,
             session_id: sid,
-            meal_components: getActiveComponents(selectedPattern, enabledRoles, "ja"),
+            meal_components: getActiveComponents(selectedPattern, enabledRoles, locale),
+            locale,
           }),
         });
         await readSSE(res, (type, data) => {
@@ -296,10 +297,10 @@ export default function HomePage() {
           }
         });
       } catch {
-        // Phase B の失敗はサイレントに無視（1案目は既に表示済み）
+        // Phase B failure is silent — first suggestion already shown
       }
     },
-    [tiredMode, selectedPattern, enabledRoles]
+    [tiredMode, selectedPattern, enabledRoles, locale]
   );
 
   // ── Phase A: analyze ────────────────────────────────────────────────────────
@@ -321,7 +322,6 @@ export default function HomePage() {
   const startAnalysis = useCallback(async () => {
     if (!images.length) return;
 
-    // ゲストの使用回数チェック
     if (!user) {
       const count = getGuestCount();
       if (count >= GUEST_LIMIT) {
@@ -344,8 +344,9 @@ export default function HomePage() {
         body: JSON.stringify({
           imageDataUrls: images.map((i) => i.dataUrl),
           tired_mode: tiredMode,
-          meal_time: "夕食",
-          meal_components: getActiveComponents(selectedPattern, enabledRoles, "ja"),
+          meal_time: locale === "ja" ? "夕食" : "dinner",
+          meal_components: getActiveComponents(selectedPattern, enabledRoles, locale),
+          locale,
         }),
       });
 
@@ -370,12 +371,10 @@ export default function HomePage() {
           const d = data as { session_id: string };
           capturedSessionId = d.session_id;
           setSessionId(d.session_id);
-          // session_id が揃ったら Phase B 開始
           if (capturedMeal) {
             startAlternatives(capturedIngredients, capturedMeal, capturedSessionId);
           }
         } else if (type === "done") {
-          // session イベントが来なかった場合（ゲスト）も Phase B を開始
           if (capturedMeal && !capturedSessionId) {
             startAlternatives(capturedIngredients, capturedMeal, null);
           }
@@ -391,10 +390,10 @@ export default function HomePage() {
         }
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
+      setError(err instanceof Error ? err.message : tUpload("error"));
       setView("upload");
     }
-  }, [images, tiredMode, selectedPattern, enabledRoles, startAlternatives]);
+  }, [images, tiredMode, selectedPattern, enabledRoles, locale, startAlternatives]);
 
   // ── Rendering ───────────────────────────────────────────────────────────────
 
@@ -503,20 +502,52 @@ export default function HomePage() {
   );
 }
 
+// ─── Language switcher ────────────────────────────────────────────────────────
+
+function LanguageSwitcher() {
+  const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  const t = useTranslations("settings");
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => router.replace(pathname, { locale: "ja" })}
+        className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition ${
+          locale === "ja" ? "bg-primary text-white" : "text-gray-400 hover:text-gray-600"
+        }`}
+      >
+        {t("lang_ja")}
+      </button>
+      <span className="text-gray-200 text-sm">|</span>
+      <button
+        onClick={() => router.replace(pathname, { locale: "en" })}
+        className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition ${
+          locale === "en" ? "bg-primary text-white" : "text-gray-400 hover:text-gray-600"
+        }`}
+      >
+        English
+      </button>
+    </div>
+  );
+}
+
 // ─── Onboarding view ──────────────────────────────────────────────────────────
 
-const APPLIANCE_OPTIONS = [
-  { id: "hotcook", label: "ホットクック", icon: "🥘" },
-  { id: "pan", label: "フライパン・鍋", icon: "🍳" },
-  { id: "microwave", label: "電子レンジ", icon: "📦" },
-  { id: "oven", label: "オーブン・グリル", icon: "🔥" },
-];
-
 function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void }) {
+  const t = useTranslations("onboarding");
   const [step, setStep] = useState(1);
   const [servings, setServings] = useState(2);
   const [appliances, setAppliances] = useState<string[]>(["pan"]);
   const [ngFoods, setNgFoods] = useState("");
+
+  const applianceOptions = [
+    { id: "hotcook", label: t("hotcook"), icon: "🥘" },
+    { id: "pan", label: t("pan"), icon: "🍳" },
+    { id: "microwave", label: t("microwave"), icon: "📦" },
+    { id: "oven", label: t("oven"), icon: "🔥" },
+  ];
 
   const toggleAppliance = (id: string) =>
     setAppliances((prev) =>
@@ -526,11 +557,10 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto px-4 py-10">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Snapmeal へようこそ</h1>
-        <p className="text-sm text-gray-500">簡単な設定をしてください（1分で完了）</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">{t("title")}</h1>
+        <p className="text-sm text-gray-500">{t("subtitle")}</p>
       </div>
 
-      {/* Step indicator */}
       <div className="flex gap-2 justify-center mb-10">
         {[1, 2, 3].map((s) => (
           <div
@@ -544,7 +574,7 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
 
       {step === 1 && (
         <div className="flex-1 flex flex-col">
-          <p className="text-lg font-semibold text-gray-800 mb-6">何人分で作りますか？</p>
+          <p className="text-lg font-semibold text-gray-800 mb-6">{t("servings_q")}</p>
           <div className="grid grid-cols-2 gap-3">
             {[1, 2, 3, 4].map((n) => (
               <button
@@ -556,7 +586,7 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
                     : "bg-white border-2 border-gray-100 text-gray-700 hover:border-primary"
                 }`}
               >
-                {n === 4 ? "4人以上" : `${n}人`}
+                {n === 4 ? t("4plus") : t("n_people", { n })}
               </button>
             ))}
           </div>
@@ -564,17 +594,17 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
             onClick={() => setStep(2)}
             className="w-full mt-auto pt-8 bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-orange-200 hover:opacity-90 transition"
           >
-            次へ →
+            {t("next")}
           </button>
         </div>
       )}
 
       {step === 2 && (
         <div className="flex-1 flex flex-col">
-          <p className="text-lg font-semibold text-gray-800 mb-2">お持ちの調理器具は？</p>
-          <p className="text-sm text-gray-400 mb-6">複数選択できます</p>
+          <p className="text-lg font-semibold text-gray-800 mb-2">{t("appliances_q")}</p>
+          <p className="text-sm text-gray-400 mb-6">{t("appliances_hint")}</p>
           <div className="space-y-3">
-            {APPLIANCE_OPTIONS.map(({ id, label, icon }) => (
+            {applianceOptions.map(({ id, label, icon }) => (
               <button
                 key={id}
                 onClick={() => toggleAppliance(id)}
@@ -597,13 +627,13 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
               onClick={() => setStep(1)}
               className="flex-1 py-4 rounded-2xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
             >
-              ← 戻る
+              {t("back")}
             </button>
             <button
               onClick={() => setStep(3)}
               className="flex-1 py-4 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-orange-200 hover:opacity-90 transition"
             >
-              次へ →
+              {t("next")}
             </button>
           </div>
         </div>
@@ -611,12 +641,12 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
 
       {step === 3 && (
         <div className="flex-1 flex flex-col">
-          <p className="text-lg font-semibold text-gray-800 mb-1">アレルギーや苦手な食材は？</p>
-          <p className="text-sm text-gray-400 mb-6">任意 · スキップしても大丈夫です</p>
+          <p className="text-lg font-semibold text-gray-800 mb-1">{t("ng_q")}</p>
+          <p className="text-sm text-gray-400 mb-6">{t("ng_hint")}</p>
           <textarea
             value={ngFoods}
             onChange={(e) => setNgFoods(e.target.value)}
-            placeholder="例: 卵、えび、落花生"
+            placeholder={t("ng_placeholder")}
             className="w-full border-2 border-gray-100 rounded-2xl p-4 text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary resize-none bg-white"
             rows={3}
           />
@@ -625,13 +655,13 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
               onClick={() => setStep(2)}
               className="flex-1 py-4 rounded-2xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
             >
-              ← 戻る
+              {t("back")}
             </button>
             <button
               onClick={() => onComplete({ servings, appliances, ng_foods: ngFoods })}
               className="flex-1 py-4 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-orange-200 hover:opacity-90 transition"
             >
-              設定完了
+              {t("complete")}
             </button>
           </div>
         </div>
@@ -651,9 +681,17 @@ function SettingsView({
   onSave: (s: UserSettings) => void;
   onBack: () => void;
 }) {
+  const t = useTranslations("settings");
   const [servings, setServings] = useState(current.servings);
   const [appliances, setAppliances] = useState<string[]>(current.appliances);
   const [ngFoods, setNgFoods] = useState(current.ng_foods);
+
+  const applianceOptions = [
+    { id: "hotcook", label: t("hotcook"), icon: "🥘" },
+    { id: "pan", label: t("pan"), icon: "🍳" },
+    { id: "microwave", label: t("microwave"), icon: "📦" },
+    { id: "oven", label: t("oven"), icon: "🔥" },
+  ];
 
   const toggleAppliance = (id: string) =>
     setAppliances((prev) =>
@@ -664,13 +702,12 @@ function SettingsView({
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 bg-white">
         <button onClick={onBack} className="text-gray-500 text-lg p-1">←</button>
-        <h2 className="font-bold text-gray-800 text-lg">設定</h2>
+        <h2 className="font-bold text-gray-800 text-lg">{t("title")}</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-8">
-        {/* Servings */}
         <div>
-          <p className="text-sm font-semibold text-gray-700 mb-3">何人分で作りますか？</p>
+          <p className="text-sm font-semibold text-gray-700 mb-3">{t("servings_q")}</p>
           <div className="grid grid-cols-4 gap-2">
             {[1, 2, 3, 4].map((n) => (
               <button
@@ -682,17 +719,16 @@ function SettingsView({
                     : "bg-white border-2 border-gray-100 text-gray-700 hover:border-primary"
                 }`}
               >
-                {n === 4 ? "4人以上" : `${n}人`}
+                {n === 4 ? t("4plus") : t("n_people", { n })}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Appliances */}
         <div>
-          <p className="text-sm font-semibold text-gray-700 mb-3">お持ちの調理器具</p>
+          <p className="text-sm font-semibold text-gray-700 mb-3">{t("appliances_q")}</p>
           <div className="space-y-2">
-            {APPLIANCE_OPTIONS.map(({ id, label, icon }) => (
+            {applianceOptions.map(({ id, label, icon }) => (
               <button
                 key={id}
                 onClick={() => toggleAppliance(id)}
@@ -712,17 +748,21 @@ function SettingsView({
           </div>
         </div>
 
-        {/* NG foods */}
         <div>
-          <p className="text-sm font-semibold text-gray-700 mb-1">アレルギー・苦手な食材</p>
-          <p className="text-xs text-gray-400 mb-3">任意</p>
+          <p className="text-sm font-semibold text-gray-700 mb-1">{t("ng_q")}</p>
+          <p className="text-xs text-gray-400 mb-3">{t("ng_hint")}</p>
           <textarea
             value={ngFoods}
             onChange={(e) => setNgFoods(e.target.value)}
-            placeholder="例: 卵、えび、落花生"
+            placeholder={t("ng_placeholder")}
             className="w-full border-2 border-gray-100 rounded-2xl p-4 text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary resize-none bg-white text-sm"
             rows={3}
           />
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold text-gray-700 mb-3">{t("language")}</p>
+          <LanguageSwitcher />
         </div>
       </div>
 
@@ -731,7 +771,7 @@ function SettingsView({
           onClick={() => onSave({ servings, appliances, ng_foods: ngFoods })}
           className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition"
         >
-          保存する
+          {t("save")}
         </button>
         <button
           onClick={async () => {
@@ -740,7 +780,7 @@ function SettingsView({
           }}
           className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
         >
-          ログアウト
+          {t("logout")}
         </button>
       </div>
     </main>
@@ -748,13 +788,6 @@ function SettingsView({
 }
 
 // ─── Upload view ──────────────────────────────────────────────────────────────
-
-const APPLIANCE_LABELS: Record<string, { label: string; icon: string }> = {
-  hotcook: { label: "ホットクック", icon: "🥘" },
-  pan: { label: "フライパン", icon: "🍳" },
-  microwave: { label: "レンジ", icon: "📦" },
-  oven: { label: "オーブン", icon: "🔥" },
-};
 
 function UploadView({
   images,
@@ -791,34 +824,40 @@ function UploadView({
   onAnalyze: () => void;
   onOpenSettings: () => void;
 }) {
+  const t = useTranslations("upload");
+  const locale = useLocale() as "ja" | "en";
+
+  const applianceShortLabels: Record<string, { label: string; icon: string }> = {
+    hotcook: { label: t("hotcook"), icon: "🥘" },
+    pan: { label: t("pan"), icon: "🍳" },
+    microwave: { label: t("microwave"), icon: "📦" },
+    oven: { label: t("oven"), icon: "🔥" },
+  };
+
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto px-4 py-6">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Snapmeal</h1>
         <button
           onClick={onOpenSettings}
           className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition text-gray-500 text-xl"
-          aria-label="設定"
+          aria-label="Settings"
         >
           ⚙️
         </button>
       </div>
 
-      {/* Greeting */}
       <div className="mb-6">
-        <p className="text-lg font-semibold text-gray-800">今夜の献立、決めましょう</p>
-        <p className="text-sm text-gray-500 mt-0.5">冷蔵庫の写真を撮ってください</p>
+        <p className="text-lg font-semibold text-gray-800">{t("greeting")}</p>
+        <p className="text-sm text-gray-500 mt-0.5">{t("subtitle")}</p>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="mb-4 bg-red-50 text-red-600 text-sm rounded-2xl px-4 py-3 border border-red-100">
           {error}
         </div>
       )}
 
-      {/* Upload area */}
       <div
         className="border-2 border-dashed border-gray-200 rounded-3xl p-6 mb-4 bg-white cursor-pointer active:bg-gray-50 transition"
         onDrop={(e) => { e.preventDefault(); onAddFiles(e.dataTransfer.files); }}
@@ -830,8 +869,8 @@ function UploadView({
             <div className="w-20 h-20 rounded-full bg-orange-50 flex items-center justify-center">
               <span className="text-4xl">📷</span>
             </div>
-            <p className="font-semibold text-gray-700">冷蔵庫を撮影する</p>
-            <p className="text-sm text-gray-400">またはギャラリーから選ぶ</p>
+            <p className="font-semibold text-gray-700">{t("photo_cta")}</p>
+            <p className="text-sm text-gray-400">{t("gallery")}</p>
           </div>
         ) : (
           <div className="flex flex-wrap gap-3">
@@ -863,40 +902,37 @@ function UploadView({
       />
 
       <p className="text-xs text-gray-400 text-center mb-6">
-        {images.length}/{MAX_IMAGES}枚
-        {images.length > 0 && ` · 複数の角度から撮ると精度が上がります`}
+        {t(images.length > 0 ? "count_with_tip" : "count_only", {
+          count: images.length,
+          max: MAX_IMAGES,
+        })}
       </p>
 
-      {/* Tired mode toggle */}
       <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
-        <p className="text-sm font-semibold text-gray-700 mb-3">今日の余力は？</p>
+        <p className="text-sm font-semibold text-gray-700 mb-3">{t("energy_q")}</p>
         <div className="flex gap-2">
           <button
             className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition ${
-              tiredMode
-                ? "bg-primary text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              tiredMode ? "bg-primary text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
             onClick={() => !tiredMode && onToggleTired()}
           >
-            ⚡ 疲れた
+            {t("tired")}
           </button>
           <button
             className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition ${
-              !tiredMode
-                ? "bg-accent text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              !tiredMode ? "bg-accent text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
             onClick={() => tiredMode && onToggleTired()}
           >
-            🍳 余力あり
+            {t("energized")}
           </button>
         </div>
       </div>
 
       {/* Meal pattern selector */}
       <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
-        <p className="text-sm font-semibold text-gray-700 mb-3">献立スタイルは？</p>
+        <p className="text-sm font-semibold text-gray-700 mb-3">{t("style_q")}</p>
         <div className="grid grid-cols-3 gap-2">
           {MEAL_PATTERNS.map((pattern) => (
             <button
@@ -909,15 +945,14 @@ function UploadView({
               }`}
             >
               <span className="text-lg">{pattern.emoji}</span>
-              <span className="text-xs mt-0.5">{pattern.label.ja}</span>
+              <span className="text-xs mt-0.5">{pattern.label[locale]}</span>
             </button>
           ))}
         </div>
 
-        {/* Optional component toggles */}
         {selectedPattern.components.filter((c) => c.optional).length > 0 && (
           <div className="mt-3 pt-3 border-t border-gray-100">
-            <p className="text-xs text-gray-500 mb-2">追加する品は？</p>
+            <p className="text-xs text-gray-500 mb-2">{t("add_q")}</p>
             <div className="flex gap-2">
               {selectedPattern.components.filter((c) => c.optional).map((comp) => (
                 <button
@@ -929,7 +964,7 @@ function UploadView({
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  {comp.label.ja}
+                  {comp.label[locale]}
                 </button>
               ))}
             </div>
@@ -937,14 +972,12 @@ function UploadView({
         )}
       </div>
 
-      {/* Appliance selector (only when user owns multiple) */}
-      {ownedAppliances.length <= 1 && <div className="mb-2" />}
       {ownedAppliances.length > 1 && (
         <div className="bg-white rounded-2xl p-4 mb-6 border border-gray-100">
-          <p className="text-sm font-semibold text-gray-700 mb-3">今日使う調理器具は？</p>
+          <p className="text-sm font-semibold text-gray-700 mb-3">{t("appliance_q")}</p>
           <div className="flex gap-2 flex-wrap">
             {ownedAppliances.map((id) => {
-              const label = APPLIANCE_LABELS[id] ?? { label: id, icon: "🍴" };
+              const meta = applianceShortLabels[id] ?? { label: id, icon: "🍴" };
               return (
                 <button
                   key={id}
@@ -955,22 +988,22 @@ function UploadView({
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  <span>{label.icon}</span>
-                  <span>{label.label}</span>
+                  <span>{meta.icon}</span>
+                  <span>{meta.label}</span>
                 </button>
               );
             })}
           </div>
         </div>
       )}
+      {ownedAppliances.length <= 1 && <div className="mb-2" />}
 
-      {/* Analyze button */}
       <button
         onClick={onAnalyze}
         disabled={images.length === 0}
         className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-orange-200 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
       >
-        解析する
+        {t("analyze")}
       </button>
     </main>
   );
@@ -985,13 +1018,15 @@ function AnalyzingView({
   phase: AnalyzingPhase;
   ingredients: string[];
 }) {
+  const t = useTranslations("analyzing");
+
   return (
     <main className="min-h-screen bg-surface flex flex-col items-center justify-center max-w-lg mx-auto px-6">
       <div className="w-full">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-lg font-semibold text-gray-800">
-            {phase === "scanning" ? "食材をスキャン中..." : "🍳 献立を考えています..."}
+            {phase === "scanning" ? t("scanning") : t("generating")}
           </p>
         </div>
 
@@ -1013,7 +1048,7 @@ function AnalyzingView({
   );
 }
 
-// ─── Recipe view ──────────────────────────────────────────────────────────────
+// ─── Sub recipe card ──────────────────────────────────────────────────────────
 
 function SubRecipeCard({
   label,
@@ -1024,6 +1059,7 @@ function SubRecipeCard({
   icon: string;
   sub: SubRecipe;
 }) {
+  const t = useTranslations("recipe");
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
       <div className="px-4 pt-4 pb-2">
@@ -1033,7 +1069,7 @@ function SubRecipeCard({
       <div className="px-4 pb-2">
         {sub.ingredients?.length > 0 && (
           <div className="mb-3">
-            <p className="text-xs font-semibold text-gray-500 mb-1.5">材料</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">{t("ingredients")}</p>
             <div className="space-y-1">
               {sub.ingredients.map((item, i) => (
                 <div key={i} className="flex justify-between text-sm">
@@ -1046,7 +1082,7 @@ function SubRecipeCard({
         )}
         {sub.seasonings?.length > 0 && (
           <div className="mb-3">
-            <p className="text-xs font-semibold text-gray-500 mb-1.5">調味料</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">{t("seasonings")}</p>
             <div className="space-y-1">
               {sub.seasonings.map((item, i) => (
                 <div key={i} className="flex justify-between text-sm">
@@ -1059,7 +1095,7 @@ function SubRecipeCard({
         )}
         {sub.steps?.length > 0 && (
           <div className="pb-2">
-            <p className="text-xs font-semibold text-gray-500 mb-1.5">作り方</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">{t("steps")}</p>
             <div className="space-y-2">
               {sub.steps.map((step, i) => (
                 <div key={i} className="flex gap-2">
@@ -1077,6 +1113,8 @@ function SubRecipeCard({
   );
 }
 
+// ─── Recipe view ──────────────────────────────────────────────────────────────
+
 function RecipeView({
   recipe,
   loading,
@@ -1088,38 +1126,38 @@ function RecipeView({
   onBack: () => void;
   selectedPattern: MealPattern;
 }) {
+  const t = useTranslations("recipe");
+  const locale = useLocale() as "ja" | "en";
   const hasSubDishes = recipe?.side_recipe || recipe?.soup_recipe;
-  const mainLabel = getComponentLabel(selectedPattern, "main", "ja");
-  const sideLabel = getComponentLabel(selectedPattern, "side", "ja");
-  const soupLabel = getComponentLabel(selectedPattern, "soup", "ja");
+  const mainLabel = getComponentLabel(selectedPattern, "main", locale);
+  const sideLabel = getComponentLabel(selectedPattern, "side", locale);
+  const soupLabel = getComponentLabel(selectedPattern, "soup", locale);
 
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 bg-white">
         <button onClick={onBack} className="text-gray-500 text-lg p-1">←</button>
         <h2 className="font-bold text-gray-800 text-lg truncate">
-          {loading ? "レシピを生成中..." : (recipe?.title ?? "レシピ")}
+          {loading ? t("generating_title") : (recipe?.title ?? t("default_title"))}
         </h2>
       </div>
 
       {loading ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-500 text-sm">レシピを考えています...</p>
+          <p className="text-gray-500 text-sm">{t("thinking")}</p>
         </div>
       ) : recipe ? (
         <>
           <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
-            <p className="text-sm text-gray-400">{recipe.servings}人分</p>
+            <p className="text-sm text-gray-400">{t("servings", { count: recipe.servings })}</p>
 
-            {/* メインラベル（サブ皿がある場合のみ表示） */}
             {hasSubDishes && (
               <p className="text-xs font-semibold text-primary">🍖 {mainLabel}</p>
             )}
 
-            {/* Ingredients */}
             <div className="bg-white rounded-2xl p-4 border border-gray-100">
-              <p className="font-semibold text-gray-800 mb-3">材料</p>
+              <p className="font-semibold text-gray-800 mb-3">{t("ingredients")}</p>
               <div className="space-y-2">
                 {recipe.ingredients.map((item, i) => (
                   <div key={i} className="flex justify-between text-sm">
@@ -1130,10 +1168,9 @@ function RecipeView({
               </div>
             </div>
 
-            {/* Seasonings */}
             {recipe.seasonings?.length > 0 && (
               <div className="bg-white rounded-2xl p-4 border border-gray-100">
-                <p className="font-semibold text-gray-800 mb-3">調味料</p>
+                <p className="font-semibold text-gray-800 mb-3">{t("seasonings")}</p>
                 <div className="space-y-2">
                   {recipe.seasonings.map((item, i) => (
                     <div key={i} className="flex justify-between text-sm">
@@ -1145,10 +1182,9 @@ function RecipeView({
               </div>
             )}
 
-            {/* Hotcook menu */}
             {recipe.hotcook_menu && recipe.hotcook_menu.length > 0 && (
               <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
-                <p className="font-semibold text-orange-700 mb-3">🥘 ホットクック操作</p>
+                <p className="font-semibold text-orange-700 mb-3">{t("hotcook")}</p>
                 <div className="flex flex-wrap items-center gap-1.5 text-sm">
                   {recipe.hotcook_menu.map((step, i) => (
                     <span key={i} className="flex items-center gap-1.5">
@@ -1164,9 +1200,8 @@ function RecipeView({
               </div>
             )}
 
-            {/* Steps */}
             <div className="bg-white rounded-2xl p-4 border border-gray-100">
-              <p className="font-semibold text-gray-800 mb-4">作り方</p>
+              <p className="font-semibold text-gray-800 mb-4">{t("steps")}</p>
               <div className="space-y-4">
                 {recipe.steps.map((step, i) => (
                   <div key={i} className="flex gap-3">
@@ -1179,31 +1214,26 @@ function RecipeView({
               </div>
             </div>
 
-            {/* Tips */}
             {recipe.tips && (
               <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
                 <p className="text-sm text-gray-700">💡 {recipe.tips}</p>
               </div>
             )}
 
-            {/* サイドレシピ */}
             {recipe.side_recipe && (
               <SubRecipeCard label={sideLabel} icon="🥗" sub={recipe.side_recipe} />
             )}
 
-            {/* スープレシピ */}
             {recipe.soup_recipe && (
               <SubRecipeCard label={soupLabel} icon="🍵" sub={recipe.soup_recipe} />
             )}
 
-            <p className="text-xs text-gray-400 text-center pb-2">
-              ⚠️ 食材の鮮度・賞味期限はご自身でご確認ください
-            </p>
+            <p className="text-xs text-gray-400 text-center pb-2">{t("safety")}</p>
           </div>
 
           <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100">
             <button className="w-full bg-accent text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-200 hover:opacity-90 transition">
-              👍 作った！
+              {t("made_it")}
             </button>
           </div>
         </>
@@ -1233,47 +1263,47 @@ function ResultView({
   onToggleFavorite: (meal: Meal) => void;
   selectedPattern: MealPattern;
 }) {
+  const t = useTranslations("result");
+  const locale = useLocale() as "ja" | "en";
   const meal = meals[activeMealIdx];
   if (!meal) return null;
 
   const canGoNext = activeMealIdx < meals.length - 1;
   const totalSlots = 3;
   const isFavorite = favorites.includes(meal.id);
-  const mainLabel = getComponentLabel(selectedPattern, "main", "ja");
-  const sideLabel = getComponentLabel(selectedPattern, "side", "ja");
-  const soupLabel = getComponentLabel(selectedPattern, "soup", "ja");
+  const mainLabel = getComponentLabel(selectedPattern, "main", locale);
+  const sideLabel = getComponentLabel(selectedPattern, "side", locale);
+  const soupLabel = getComponentLabel(selectedPattern, "soup", locale);
+
+  const difficultyKey = meal.difficulty as "easy" | "medium" | "hard";
+  const difficultyLabel = t(difficultyKey);
 
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
-      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 bg-white">
         <button onClick={onBack} className="text-gray-500 text-lg p-1">←</button>
-        <h2 className="font-bold text-gray-800 text-lg">今夜の献立</h2>
+        <h2 className="font-bold text-gray-800 text-lg">{t("title")}</h2>
         <button
           onClick={() => onToggleFavorite(meal)}
           className="ml-auto text-2xl transition-transform active:scale-90"
-          aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
+          aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
           {isFavorite ? "❤️" : "🤍"}
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
-        {/* Main */}
         <div>
           <p className="text-xs font-semibold text-primary mb-1">🍖 {mainLabel}</p>
           <p className="text-2xl font-bold text-gray-900">{meal.name}</p>
           <p className="text-gray-500 text-sm mt-1">{meal.reason}</p>
           <div className="flex gap-3 mt-2">
-            <span className="text-sm text-gray-500">⏱ {meal.time_minutes}分</span>
-            <span className="text-sm text-gray-500">
-              ★ {DIFFICULTY_LABEL[meal.difficulty] ?? meal.difficulty}
-            </span>
+            <span className="text-sm text-gray-500">{t("time", { minutes: meal.time_minutes })}</span>
+            <span className="text-sm text-gray-500">{t("difficulty_label", { level: difficultyLabel })}</span>
             <span className="text-sm text-gray-500">{meal.genre}</span>
           </div>
         </div>
 
-        {/* Side */}
         {meal.side && (
           <div className="bg-white rounded-2xl p-4 border border-gray-100">
             <p className="text-xs font-semibold text-green-600 mb-1">🥗 {sideLabel}</p>
@@ -1284,7 +1314,6 @@ function ResultView({
           </div>
         )}
 
-        {/* Soup */}
         {meal.soup && (
           <div className="bg-white rounded-2xl p-4 border border-gray-100">
             <p className="text-xs font-semibold text-blue-500 mb-1">🍵 {soupLabel}</p>
@@ -1295,28 +1324,24 @@ function ResultView({
           </div>
         )}
 
-        {/* Available ingredients */}
         {meal.matched_ingredients?.length > 0 && (
           <div className="bg-white rounded-2xl p-4 border border-gray-100">
-            <p className="text-sm font-semibold text-accent mb-2">✅ 今ある食材で作れる</p>
+            <p className="text-sm font-semibold text-accent mb-2">{t("available")}</p>
             <p className="text-sm text-gray-600">{meal.matched_ingredients.join("・")}</p>
           </div>
         )}
 
-        {/* Missing ingredients */}
         {meal.missing_ingredients?.length > 0 && (
           <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
             <p className="text-sm font-semibold text-orange-600 mb-2">
-              🛒 買い足すもの（{meal.missing_ingredients.length}点）
+              {t("missing", { count: meal.missing_ingredients.length })}
             </p>
             <p className="text-sm text-orange-700">{meal.missing_ingredients.join("・")}</p>
           </div>
         )}
       </div>
 
-      {/* Actions */}
       <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100 space-y-3">
-        {/* Dot indicators */}
         <div className="flex justify-center gap-2 mb-4">
           {Array.from({ length: totalSlots }).map((_, i) => {
             const hasMeal = i < meals.length;
@@ -1342,7 +1367,7 @@ function ResultView({
           onClick={() => onSelectMeal(meal)}
           className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition"
         >
-          この献立で作る
+          {t("select")}
         </button>
 
         <button
@@ -1350,9 +1375,7 @@ function ResultView({
           disabled={!canGoNext}
           className="w-full bg-gray-100 text-gray-700 py-3.5 rounded-2xl font-semibold text-base hover:bg-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {meals.length < totalSlots && !canGoNext
-            ? "別の献立を準備中..."
-            : "別の献立を見る"}
+          {meals.length < totalSlots && !canGoNext ? t("preparing") : t("next")}
         </button>
       </div>
     </main>
@@ -1370,31 +1393,33 @@ function LoginPromptModal({
   onLogin: () => void;
   onClose: () => void;
 }) {
+  const t = useTranslations("loginPrompt");
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-8">
       <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl">
         <div className="text-center mb-5">
           <p className="text-4xl mb-3">{reason === "favorite" ? "❤️" : "⚡"}</p>
           <h3 className="text-lg font-bold text-gray-900 mb-1">
-            {reason === "favorite" ? "お気に入りを保存しよう" : "無料利用上限に達しました"}
+            {reason === "favorite" ? t("fav_title") : t("limit_title")}
           </h3>
           <p className="text-sm text-gray-500 leading-relaxed">
             {reason === "favorite"
-              ? "ログインするとお気に入りの献立を保存・管理できます。"
-              : `ゲストは${GUEST_LIMIT}回まで無料で使えます。ログインすると制限なく使えます。`}
+              ? t("fav_body")
+              : t("limit_body", { limit: GUEST_LIMIT })}
           </p>
         </div>
         <button
           onClick={onLogin}
           className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition mb-3"
         >
-          ログインする（無料）
+          {t("cta")}
         </button>
         <button
           onClick={onClose}
           className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
         >
-          あとで
+          {t("later")}
         </button>
       </div>
     </div>
@@ -1404,6 +1429,7 @@ function LoginPromptModal({
 // ─── Login view ───────────────────────────────────────────────────────────────
 
 function LoginView({ onBack }: { onBack: () => void }) {
+  const t = useTranslations("login");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1436,11 +1462,11 @@ function LoginView({ onBack }: { onBack: () => void }) {
       <main className="min-h-screen bg-surface flex flex-col items-center justify-center max-w-lg mx-auto px-6">
         <div className="text-center">
           <p className="text-6xl mb-6">📧</p>
-          <h2 className="text-xl font-bold text-gray-800 mb-3">メールを送信しました</h2>
+          <h2 className="text-xl font-bold text-gray-800 mb-3">{t("sent_title")}</h2>
           <p className="text-sm text-gray-500 mb-1">
-            <span className="font-medium text-gray-700">{email}</span> にログインリンクを送りました。
+            <span className="font-medium text-gray-700">{t("sent_body", { email })}</span>
           </p>
-          <p className="text-sm text-gray-400">メール内のリンクをタップしてください。</p>
+          <p className="text-sm text-gray-400">{t("sent_hint")}</p>
         </div>
       </main>
     );
@@ -1452,46 +1478,46 @@ function LoginView({ onBack }: { onBack: () => void }) {
         <button onClick={onBack} className="text-gray-500 text-lg p-1">←</button>
       </div>
       <div className="flex-1 flex flex-col items-center justify-center">
-      <div className="w-full">
-        <div className="text-center mb-10">
-          <p className="text-6xl mb-4">📸</p>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Snapmeal</h1>
-          <p className="text-gray-500 text-sm">冷蔵庫を撮るだけ。30秒で今夜の夕食が決まる。</p>
-        </div>
-
-        <form onSubmit={sendMagicLink} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              メールアドレス
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              required
-              autoFocus
-              className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-orange-100 transition text-base"
-            />
+        <div className="w-full">
+          <div className="text-center mb-10">
+            <p className="text-6xl mb-4">📸</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">{t("title")}</h1>
+            <p className="text-gray-500 text-sm">{t("subtitle")}</p>
           </div>
 
-          {error && (
-            <p className="text-sm text-red-500 text-center bg-red-50 py-2 px-4 rounded-xl">{error}</p>
-          )}
+          <form onSubmit={sendMagicLink} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t("email_label")}
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t("email_placeholder")}
+                required
+                autoFocus
+                className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-orange-100 transition text-base"
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading || !email.trim()}
-            className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {loading ? "送信中..." : "ログインリンクを送る"}
-          </button>
-        </form>
+            {error && (
+              <p className="text-sm text-red-500 text-center bg-red-50 py-2 px-4 rounded-xl">{error}</p>
+            )}
 
-        <p className="text-center text-xs text-gray-400 mt-6 leading-relaxed">
-          パスワード不要。メールのリンクをタップするだけでログインできます。
-        </p>
-      </div>
+            <button
+              type="submit"
+              disabled={loading || !email.trim()}
+              className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {loading ? t("sending") : t("send_cta")}
+            </button>
+          </form>
+
+          <p className="text-center text-xs text-gray-400 mt-6 leading-relaxed">
+            {t("no_password")}
+          </p>
+        </div>
       </div>
     </main>
   );
@@ -1500,48 +1526,47 @@ function LoginView({ onBack }: { onBack: () => void }) {
 // ─── Upgrade modal ────────────────────────────────────────────────────────────
 
 function UpgradeModal({ onClose }: { onClose: () => void }) {
+  const t = useTranslations("upgrade");
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-8">
       <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl">
         <div className="text-center mb-5">
           <p className="text-4xl mb-3">🚀</p>
-          <h3 className="text-lg font-bold text-gray-900 mb-1">
-            今月の利用上限に達しました
-          </h3>
-          <p className="text-sm text-gray-500 leading-relaxed mb-4">
-            Freeプランは月10回まで無料で使えます。<br />
-            Proにアップグレードすると月90回まで使えます。
+          <h3 className="text-lg font-bold text-gray-900 mb-1">{t("title")}</h3>
+          <p className="text-sm text-gray-500 leading-relaxed mb-4 whitespace-pre-line">
+            {t("body")}
           </p>
 
-          {/* プラン比較 */}
           <div className="flex gap-3 mb-5">
             <div className="flex-1 bg-gray-50 rounded-2xl p-4 text-left border-2 border-gray-100">
-              <p className="text-xs text-gray-400 font-semibold mb-1">Free</p>
-              <p className="text-2xl font-bold text-gray-800 mb-1">¥0</p>
-              <p className="text-sm text-gray-500">月10回まで</p>
+              <p className="text-xs text-gray-400 font-semibold mb-1">{t("free_label")}</p>
+              <p className="text-2xl font-bold text-gray-800 mb-1">{t("free_price")}</p>
+              <p className="text-sm text-gray-500">{t("free_count")}</p>
             </div>
             <div className="flex-1 bg-orange-50 rounded-2xl p-4 text-left border-2 border-primary">
-              <p className="text-xs text-primary font-semibold mb-1">Pro ✨</p>
-              <p className="text-2xl font-bold text-gray-800 mb-1">¥980<span className="text-sm font-normal text-gray-500">/月</span></p>
-              <p className="text-sm text-gray-600">月90回・回数無制限感覚</p>
+              <p className="text-xs text-primary font-semibold mb-1">{t("pro_label")}</p>
+              <p className="text-2xl font-bold text-gray-800 mb-1">
+                {t("pro_price")}<span className="text-sm font-normal text-gray-500">{t("pro_period")}</span>
+              </p>
+              <p className="text-sm text-gray-600">{t("pro_count")}</p>
             </div>
           </div>
         </div>
 
         <button
           onClick={() => {
-            // Stripe Payment Link（後で設定）
             window.open("https://buy.stripe.com/snapmeal-pro", "_blank");
           }}
           className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-orange-200 hover:opacity-90 transition mb-3"
         >
-          Proにアップグレード（¥980/月）
+          {t("cta")}
         </button>
         <button
           onClick={onClose}
           className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
         >
-          来月まで待つ
+          {t("wait")}
         </button>
       </div>
     </div>

@@ -1,6 +1,9 @@
 import withPWA from "@ducanh2912/next-pwa";
+import createNextIntlPlugin from "next-intl/plugin";
 
-const nextConfig = withPWA({
+const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
+
+const pwaConfig = withPWA({
   dest: "public",
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
@@ -9,6 +12,6 @@ const nextConfig = withPWA({
   workboxOptions: {
     disableDevLogs: true,
   },
-})({});
+});
 
-export default nextConfig;
+export default pwaConfig(withNextIntl({}));

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { getLocale } from "next-intl/server";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -36,9 +37,10 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
   return (
-    <html lang="ja">
+    <html lang={locale}>
       <body className="bg-surface min-h-screen">{children}</body>
     </html>
   );

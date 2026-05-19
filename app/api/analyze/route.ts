@@ -47,7 +47,8 @@ function buildPrompt(
   tired_mode: boolean,
   meal_time: string,
   history: MealHistory[],
-  meal_components: ActiveComp[]
+  meal_components: ActiveComp[],
+  locale: string
 ): string {
   const mainComp = meal_components.find((c) => c.role === "main");
   const sideComp = meal_components.find((c) => c.role === "side");
@@ -59,7 +60,10 @@ function buildPrompt(
     soupComp ? `${soupComp.label}（スープ・汁物等）` : "",
   ].filter(Boolean).join("と");
 
-  return `あなたは家庭料理の専門家です。共働き家庭向けに献立を提案してください。
+  const langInstruction = locale === "en"
+    ? "IMPORTANT: Write all text values in English (dish names, reasons, ingredient names, genre, etc.).\n\n"
+    : "";
+  return `${langInstruction}あなたは家庭料理の専門家です。共働き家庭向けに献立を提案してください。
 
 状況:
 - 食事: ${meal_time}
@@ -187,6 +191,7 @@ export async function POST(req: NextRequest) {
     tired_mode = false,
     meal_time = "夕食",
     meal_components = [{ role: "main", label: "メイン" }],
+    locale = "ja",
   } = await req.json();
 
   if (!imageDataUrls?.length) {
@@ -212,7 +217,7 @@ export async function POST(req: NextRequest) {
       }
 
       const history = userId ? await getRecentMealHistory(userId) : [];
-      const prompt = buildPrompt(tired_mode, meal_time, history, meal_components as ActiveComp[]);
+      const prompt = buildPrompt(tired_mode, meal_time, history, meal_components as ActiveComp[], locale);
       let fullText = "";
 
       try {
