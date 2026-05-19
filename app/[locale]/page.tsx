@@ -932,7 +932,7 @@ function UploadView({
           </button>
           <button
             className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-1.5 ${
-              !tiredMode ? "bg-accent text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              !tiredMode ? "bg-primary text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
             onClick={() => tiredMode && onToggleTired()}
           >
