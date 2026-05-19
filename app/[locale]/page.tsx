@@ -1268,8 +1268,25 @@ function ResultView({
   if (!meal) return null;
 
   const canGoNext = activeMealIdx < meals.length - 1;
+  const canGoPrev = activeMealIdx > 0;
   const totalSlots = 3;
   const isFavorite = favorites.includes(meal.id);
+
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0 && canGoNext) onChangeIdx(activeMealIdx + 1);
+    if (dx > 0 && canGoPrev) onChangeIdx(activeMealIdx - 1);
+  };
   const mainLabel = getComponentLabel(selectedPattern, "main", locale);
   const sideLabel = getComponentLabel(selectedPattern, "side", locale);
   const soupLabel = getComponentLabel(selectedPattern, "soup", locale);
@@ -1291,7 +1308,11 @@ function ResultView({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
+      <div
+        className="flex-1 overflow-y-auto px-4 py-6 space-y-5"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <div>
           <p className="text-xs font-semibold text-primary mb-1 uppercase tracking-wide">{mainLabel}</p>
           <p className="text-2xl font-bold text-gray-900">{meal.name}</p>
