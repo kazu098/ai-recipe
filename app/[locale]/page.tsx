@@ -264,7 +264,9 @@ export default function HomePage() {
           locale,
         }),
       });
+      if (!res.ok) throw new Error("recipe fetch failed");
       const data: RecipeData = await res.json();
+      if (!data.ingredients) throw new Error("invalid recipe response");
       setRecipe(data);
     } catch {
       setView("result");
@@ -1158,7 +1160,7 @@ function RecipeView({
             <div className="bg-white rounded-2xl p-4 border border-gray-100">
               <p className="font-semibold text-gray-800 mb-3">{t("ingredients")}</p>
               <div className="space-y-2">
-                {recipe.ingredients.map((item, i) => (
+                {(recipe.ingredients ?? []).map((item, i) => (
                   <div key={i} className="flex justify-between text-sm">
                     <span className="text-gray-700">{item.name}</span>
                     <span className="text-gray-400">{item.amount}</span>
