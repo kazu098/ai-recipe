@@ -1604,11 +1604,16 @@ function UpgradeModal({ onClose, locale }: { onClose: () => void; locale: string
 
   const handleUpgrade = async () => {
     setLoading(true);
+    // ブラウザの言語設定からEU圏かを判定
+    const browserLang = typeof navigator !== "undefined" ? navigator.language : "";
+    const euLangs = ["de", "fr", "it", "es", "nl", "pl", "pt", "sv", "fi", "da", "nb", "el"];
+    const isEU = euLangs.some((l) => browserLang.startsWith(l));
+    const region = locale === "ja" ? "jp" : isEU ? "eur" : "usd";
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale }),
+        body: JSON.stringify({ locale, region }),
       });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
