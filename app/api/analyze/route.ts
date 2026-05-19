@@ -80,7 +80,8 @@ function buildPrompt(
 - matched_ingredients には画像で実際に検出された食材のみ入れること`
     : `- missing_ingredients は必ず空配列 [] にすること
 - 買い物が必要な料理は絶対に提案しないこと
-- 今ある食材と常備調味料だけで完結すること`;
+- 今ある食材と常備調味料だけで完結すること
+- 【厳守】料理名・料理内容に登場する食材（野菜・肉・魚など）は、必ず matched_ingredients に含まれているか、常備調味料リストにあるものだけを使うこと。検出されていない食材を料理名に含めることは禁止`;
 
   if (hasUserRequest) {
     return `${langInstruction}あなたは家庭料理の専門家です。
