@@ -102,6 +102,23 @@ function incrementGuestCount(): number {
 
 // ─── Image helpers ─────────────────────────────────────────────────────────────
 
+function isHeic(file: File): boolean {
+  return (
+    file.type === "image/heic" ||
+    file.type === "image/heif" ||
+    /\.(heic|heif)$/i.test(file.name)
+  );
+}
+
+async function convertHeicToJpeg(file: File): Promise<File> {
+  if (!isHeic(file)) return file;
+  const heic2any = (await import("heic2any")).default;
+  const blob = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+  const jpegBlob = Array.isArray(blob) ? blob[0] : blob;
+  const jpegName = file.name.replace(/\.(heic|heif)$/i, ".jpg");
+  return new File([jpegBlob], jpegName, { type: "image/jpeg" });
+}
+
 function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -231,17 +248,20 @@ export default function HomePage() {
   // ── Image handling ──────────────────────────────────────────────────────────
 
   const addFiles = useCallback(async (files: FileList | File[]) => {
-    const imageFiles = Array.from(files)
-      .filter((f) => f.type.startsWith("image/"))
+    const candidates = Array.from(files)
+      .filter((f) => f.type.startsWith("image/") || isHeic(f))
       .slice(0, MAX_IMAGES - images.length);
 
-    for (const file of imageFiles) {
-      const raw = await readAsDataUrl(file);
-      const compressed = await compressImage(raw);
-      setImages((prev) =>
-        prev.length < MAX_IMAGES ? [...prev, { file, dataUrl: compressed }] : prev
-      );
-    }
+    const results = await Promise.all(
+      candidates.map(async (file) => {
+        const converted = await convertHeicToJpeg(file);
+        const raw = await readAsDataUrl(converted);
+        const dataUrl = await compressImage(raw);
+        return { file: converted, dataUrl };
+      })
+    );
+
+    setImages((prev) => [...prev, ...results].slice(0, MAX_IMAGES));
   }, [images.length]);
 
   const removeImage = (idx: number) =>
@@ -1072,7 +1092,7 @@ function UploadView({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,image/heic,image/heif"
         multiple
         className="hidden"
         onChange={(e) => e.target.files && onAddFiles(e.target.files)}
