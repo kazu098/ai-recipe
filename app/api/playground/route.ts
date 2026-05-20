@@ -2,13 +2,26 @@ import { NextRequest } from "next/server";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const SYSTEM_PROMPT = `あなたは家庭料理の専門家です。
-冷蔵庫の写真（複数枚）から食材を認識し、共働き家庭向けに献立を1案提案してください。
-複数の写真がある場合は、全ての写真を合わせて食材を網羅的にリストアップしてください。
+// Phase 1: 1枚の画像から食材のみを抽出
+const INGREDIENT_ONLY_PROMPT = `冷蔵庫の写真を1枚見て、見えている食材をリストアップしてください。
+ルール:
+- 調味料・ドレッシング・ソース類は含めない
+- 食材名は日本語で簡潔に（例: 鶏もも肉、卵、ニンジン）
+- 商品パッケージが見える場合は中の食材名に変換する（例: 「冷凍チャーハン」→「冷凍ご飯」）
+- 確認できない・不明なものは含めない
+JSON配列のみ出力（説明文不要）: ["食材1", "食材2", ...]`;
+
+// Phase 2: 認識済み食材から献立を提案
+function buildMealPrompt(ingredients: string[]): string {
+  return `あなたは家庭料理の専門家です。
+冷蔵庫に以下の食材があります（画像認識済み）:
+${ingredients.join("、")}
+
+この食材を使って共働き家庭向けに献立を1案提案してください。
 
 出力は必ず以下のJSONのみ（マークダウン不要）:
 {
-  "ingredients": ["食材1", "食材2", ...],
+  "ingredients": [${ingredients.map((i) => `"${i}"`).join(", ")}],
   "meal": {
     "name": "料理名",
     "reason": "なぜこの料理か（1文・30字以内）",
@@ -18,25 +31,79 @@ const SYSTEM_PROMPT = `あなたは家庭料理の専門家です。
     "missing_ingredients": ["買い足す食材1", ...]
   }
 }`;
+}
 
 function extractJSON(text: string): string {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   return jsonMatch ? jsonMatch[0] : text;
 }
 
+function parseIngredientArray(text: string): string[] {
+  const match = text.match(/\[[\s\S]*?\]/);
+  if (!match) return [];
+  try {
+    return (JSON.parse(match[0]) as string[]).filter((s) => typeof s === "string" && s.trim());
+  } catch {
+    return [];
+  }
+}
+
+function mergeIngredients(lists: string[][]): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const list of lists) {
+    for (const item of list) {
+      const key = item.trim();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        merged.push(key);
+      }
+    }
+  }
+  return merged;
+}
+
+function toImagePart(dataUrl: string) {
+  return {
+    inlineData: {
+      data: dataUrl.replace(/^data:image\/\w+;base64,/, ""),
+      mimeType: (dataUrl.match(/^data:(image\/\w+);/)?.[1] ?? "image/jpeg") as
+        | "image/jpeg"
+        | "image/png"
+        | "image/webp",
+    },
+  };
+}
+
 type SendFn = (event: string, data: unknown) => void;
+type GeminiModelId = "gemini-2.5-pro" | "gemini-2.5-flash" | "gemini-2.5-flash-no-think" | "gemini-2.5-flash-lite";
 
 async function streamGPT4o(imageDataUrls: string[], send: SendFn) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  const imageContents: OpenAI.Chat.ChatCompletionContentPart[] = imageDataUrls.map((dataUrl) => ({
-    type: "image_url",
-    image_url: { url: dataUrl, detail: "auto" },
-  }));
+  // Phase 1: per-image 並列認識
+  const lists = await Promise.all(
+    imageDataUrls.map(async (url) => {
+      const res = await client.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: INGREDIENT_ONLY_PROMPT },
+            { type: "image_url", image_url: { url, detail: "auto" } },
+          ],
+        }],
+        max_tokens: 300,
+      });
+      return parseIngredientArray(res.choices[0]?.message?.content ?? "");
+    })
+  );
+  const ingredients = mergeIngredients(lists);
 
+  // Phase 2: テキストのみで献立生成
   const stream = await client.chat.completions.create({
     model: "gpt-4o",
-    messages: [{ role: "user", content: [{ type: "text", text: SYSTEM_PROMPT }, ...imageContents] }],
+    messages: [{ role: "user", content: buildMealPrompt(ingredients) }],
     max_tokens: 800,
     stream: true,
   });
@@ -51,37 +118,34 @@ async function streamGPT4o(imageDataUrls: string[], send: SendFn) {
   }
 
   const parsed = JSON.parse(extractJSON(fullText)) as { ingredients: string[]; meal: unknown };
-  send("done", { ingredients: parsed.ingredients ?? [], meal: parsed.meal ?? null, rawResponse: fullText });
+  send("done", { ingredients: parsed.ingredients ?? ingredients, meal: parsed.meal ?? null, rawResponse: fullText });
 }
 
-type GeminiModelId = "gemini-2.5-pro" | "gemini-2.5-flash" | "gemini-2.5-flash-no-think" | "gemini-2.5-flash-lite";
-
-async function streamGemini(
-  model: GeminiModelId,
-  imageDataUrls: string[],
-  send: SendFn
-) {
+async function streamGemini(model: GeminiModelId, imageDataUrls: string[], send: SendFn) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
 
   const noThink = model === "gemini-2.5-flash-no-think";
   const modelId = noThink ? "gemini-2.5-flash" : model;
-
   const geminiModel = genAI.getGenerativeModel({
     model: modelId,
     ...(noThink && { generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as never }),
   });
 
-  const imageParts = imageDataUrls.map((dataUrl) => ({
-    inlineData: {
-      data: dataUrl.replace(/^data:image\/\w+;base64,/, ""),
-      mimeType: (dataUrl.match(/^data:(image\/\w+);/)?.[1] ?? "image/jpeg") as
-        | "image/jpeg"
-        | "image/png"
-        | "image/webp",
-    },
-  }));
+  // Phase 1: per-image 並列認識
+  const lists = await Promise.all(
+    imageDataUrls.map(async (url) => {
+      try {
+        const result = await geminiModel.generateContent([INGREDIENT_ONLY_PROMPT, toImagePart(url)]);
+        return parseIngredientArray(result.response.text());
+      } catch {
+        return [] as string[];
+      }
+    })
+  );
+  const ingredients = mergeIngredients(lists);
 
-  const result = await geminiModel.generateContentStream([SYSTEM_PROMPT, ...imageParts]);
+  // Phase 2: テキストのみで献立生成（ストリーミング）
+  const result = await geminiModel.generateContentStream(buildMealPrompt(ingredients));
 
   let fullText = "";
   for await (const chunk of result.stream) {
@@ -93,7 +157,7 @@ async function streamGemini(
   }
 
   const parsed = JSON.parse(extractJSON(fullText)) as { ingredients: string[]; meal: unknown };
-  send("done", { ingredients: parsed.ingredients ?? [], meal: parsed.meal ?? null, rawResponse: fullText });
+  send("done", { ingredients: parsed.ingredients ?? ingredients, meal: parsed.meal ?? null, rawResponse: fullText });
 }
 
 export async function POST(req: NextRequest) {
