@@ -1574,7 +1574,7 @@ function LoginView({ onBack }: { onBack: () => void }) {
 
     if (mode === "forgot") {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/${locale}/auth/callback`,
+        redirectTo: `${window.location.origin}/${locale}/auth/callback?type=recovery`,
       });
       setLoading(false);
       if (error) setError(t("error_generic"));

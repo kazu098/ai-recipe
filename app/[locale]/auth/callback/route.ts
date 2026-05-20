@@ -10,6 +10,8 @@ export async function GET(
   const code = req.nextUrl.searchParams.get("code");
   const origin = req.nextUrl.origin;
 
+  const type = req.nextUrl.searchParams.get("type");
+
   if (code) {
     const cookieStore = cookies();
     const supabase = createServerClient(
@@ -29,6 +31,11 @@ export async function GET(
       }
     );
     await supabase.auth.exchangeCodeForSession(code);
+  }
+
+  // パスワードリセットの場合は設定画面へ
+  if (type === "recovery") {
+    return NextResponse.redirect(`${origin}/${locale}/auth/reset-password`);
   }
 
   return NextResponse.redirect(`${origin}/${locale}`);
