@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:recognition": "npx tsx scripts/test-image-recognition.ts",
+    "test:recognition:flash": "npx tsx scripts/test-image-recognition.ts gemini-2.5-flash",
+    "test:recognition:pro": "npx tsx scripts/test-image-recognition.ts gemini-2.5-pro",
+    "test:recognition:gpt4o": "npx tsx scripts/test-image-recognition.ts gpt-4o"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
