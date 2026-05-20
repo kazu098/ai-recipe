@@ -145,6 +145,60 @@ export async function checkAndIncrementUsage(
   return { count: (data as number) ?? currentCount + 1, limit };
 }
 
+/** セッション履歴を取得（直近20件） */
+export async function getSessionHistory(userId: string): Promise<{
+  sessions: Array<{
+    id: string;
+    created_at: string;
+    tired_mode: boolean;
+    detected_ingredients: string[] | null;
+    meals: Array<{
+      id: string;
+      meal_name: string;
+      genre: string | null;
+      was_selected: boolean;
+      was_cooked: boolean;
+    }>;
+  }>;
+}> {
+  const supabase = createClient();
+  const { data: sessions } = await supabase
+    .from("sessions")
+    .select("id, created_at, tired_mode, detected_ingredients")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (!sessions?.length) return { sessions: [] };
+
+  const sessionIds = sessions.map((s) => s.id);
+  const { data: meals } = await supabase
+    .from("meal_history")
+    .select("id, session_id, meal_name, genre, was_selected, was_cooked")
+    .in("session_id", sessionIds)
+    .eq("user_id", userId);
+
+  const mealsBySession: Record<string, typeof meals> = {};
+  for (const meal of meals ?? []) {
+    if (!mealsBySession[meal.session_id]) mealsBySession[meal.session_id] = [];
+    mealsBySession[meal.session_id]!.push(meal);
+  }
+
+  return {
+    sessions: sessions.map((s) => ({
+      ...s,
+      detected_ingredients: s.detected_ingredients as string[] | null,
+      meals: (mealsBySession[s.id] ?? []) as Array<{
+        id: string;
+        meal_name: string;
+        genre: string | null;
+        was_selected: boolean;
+        was_cooked: boolean;
+      }>,
+    })),
+  };
+}
+
 /** 今月の利用回数とプラン上限を取得 */
 export async function getUsageStatus(
   userId: string

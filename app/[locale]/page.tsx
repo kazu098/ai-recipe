@@ -13,11 +13,11 @@ import {
   type MealPattern,
   type ComponentRole,
 } from "@/lib/meal-patterns";
-import { Settings, ArrowLeft, Camera, Heart, Zap, ChefHat } from "lucide-react";
+import { Settings, ArrowLeft, Camera, Heart, Zap, ChefHat, History, ChevronRight } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AppView = "onboarding" | "upload" | "recognizing" | "ingredient-confirm" | "analyzing" | "result" | "recipe" | "settings" | "login";
+type AppView = "onboarding" | "upload" | "recognizing" | "ingredient-confirm" | "analyzing" | "result" | "recipe" | "settings" | "login" | "history";
 type AnalyzingPhase = "scanning" | "generating";
 
 type SubDish = {
@@ -581,6 +581,16 @@ export default function HomePage() {
     );
   }
 
+  if (view === "history") {
+    return (
+      <HistoryView
+        onBack={() => setView("upload")}
+        onLogin={() => setView("login")}
+        user={user}
+      />
+    );
+  }
+
   return (
     <>
       <UploadView
@@ -609,6 +619,7 @@ export default function HomePage() {
         onChangeUserRequest={setUserRequest}
         onAnalyze={startRecognition}
         onOpenSettings={() => setView("settings")}
+        onOpenHistory={() => setView("history")}
       />
       {loginPrompt.show && (
         <LoginPromptModal
@@ -788,6 +799,125 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
           </div>
         </div>
       )}
+    </main>
+  );
+}
+
+// ─── History view ─────────────────────────────────────────────────────────────
+
+type HistorySession = {
+  id: string;
+  created_at: string;
+  tired_mode: boolean;
+  detected_ingredients: string[] | null;
+  meals: Array<{
+    id: string;
+    meal_name: string;
+    genre: string | null;
+    was_selected: boolean;
+    was_cooked: boolean;
+  }>;
+};
+
+function HistoryView({
+  onBack,
+  onLogin,
+  user,
+}: {
+  onBack: () => void;
+  onLogin: () => void;
+  user: import("@supabase/supabase-js").User | null;
+}) {
+  const [sessions, setSessions] = useState<HistorySession[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    fetch("/api/history")
+      .then((r) => r.json())
+      .then((d) => { setSessions(d.sessions ?? []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [user]);
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("ja-JP", { month: "short", day: "numeric", weekday: "short" });
+  };
+
+  return (
+    <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
+      <div className="bg-primary-dark px-4 py-3 flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <h1 className="text-lg font-bold text-white">献立履歴</h1>
+      </div>
+
+      <div className="flex-1 px-4 py-4">
+        {!user ? (
+          <div className="flex flex-col items-center gap-4 mt-16 text-center">
+            <History size={48} className="text-gray-300" />
+            <p className="text-gray-500 text-sm">履歴を見るにはログインが必要です</p>
+            <button
+              onClick={onLogin}
+              className="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm"
+            >
+              ログイン
+            </button>
+          </div>
+        ) : loading ? (
+          <div className="flex justify-center mt-16">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : sessions.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 mt-16 text-center">
+            <History size={48} className="text-gray-300" />
+            <p className="text-gray-500 text-sm">まだ履歴がありません</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {sessions.map((session) => {
+              const selected = session.meals.find((m) => m.was_selected);
+              const ingredientPreview = (session.detected_ingredients ?? []).slice(0, 4).join("・");
+              return (
+                <div key={session.id} className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-400 mb-1">{formatDate(session.created_at)}</p>
+                      {selected ? (
+                        <p className="font-semibold text-gray-800 text-sm truncate">{selected.meal_name}</p>
+                      ) : (
+                        <p className="text-gray-400 text-sm italic">献立未選択</p>
+                      )}
+                      {ingredientPreview && (
+                        <p className="text-xs text-gray-400 mt-1 truncate">{ingredientPreview}{(session.detected_ingredients?.length ?? 0) > 4 ? " …" : ""}</p>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {session.tired_mode && (
+                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">時短</span>
+                      )}
+                      {selected?.was_cooked && (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">作った</span>
+                      )}
+                    </div>
+                  </div>
+                  {session.meals.length > 1 && (
+                    <div className="mt-2 pt-2 border-t border-gray-50 flex flex-wrap gap-1">
+                      {session.meals.filter((m) => !m.was_selected).slice(0, 3).map((m) => (
+                        <span key={m.id} className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">{m.meal_name}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </main>
   );
 }
@@ -1004,6 +1134,7 @@ function UploadView({
   onChangeUserRequest,
   onAnalyze,
   onOpenSettings,
+  onOpenHistory,
 }: {
   images: ImageItem[];
   tiredMode: boolean;
@@ -1023,6 +1154,7 @@ function UploadView({
   onChangeUserRequest: (v: string) => void;
   onAnalyze: () => void;
   onOpenSettings: () => void;
+  onOpenHistory: () => void;
 }) {
   const t = useTranslations("upload");
   const locale = useLocale() as "ja" | "en";
@@ -1038,13 +1170,22 @@ function UploadView({
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
       <div className="bg-primary-dark px-4 py-3 flex items-center justify-between">
         <h1 className="text-xl font-extrabold text-white tracking-tight">Snapmeal</h1>
-        <button
-          onClick={onOpenSettings}
-          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white"
-          aria-label="Settings"
-        >
-          <Settings size={18} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onOpenHistory}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white"
+            aria-label="History"
+          >
+            <History size={18} />
+          </button>
+          <button
+            onClick={onOpenSettings}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white"
+            aria-label="Settings"
+          >
+            <Settings size={18} />
+          </button>
+        </div>
       </div>
 
       <div className="px-4 pt-4 flex flex-col flex-1">
