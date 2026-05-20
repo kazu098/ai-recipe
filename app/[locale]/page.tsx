@@ -1597,7 +1597,6 @@ function LoginView({ onBack }: { onBack: () => void }) {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { emailRedirectTo: `${window.location.origin}/${locale}/auth/callback` },
       });
       setLoading(false);
       if (error) {
@@ -1670,6 +1669,7 @@ function LoginView({ onBack }: { onBack: () => void }) {
                   placeholder={t("email_placeholder")}
                   required
                   autoFocus
+                  autoComplete="email"
                   className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-green-100 transition text-base"
                 />
                 {error && <p className="text-sm text-red-500 bg-red-50 py-2 px-4 rounded-xl text-center">{error}</p>}
@@ -1711,6 +1711,7 @@ function LoginView({ onBack }: { onBack: () => void }) {
                   placeholder={t("email_placeholder")}
                   required
                   autoFocus
+                  autoComplete="email"
                   className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-green-100 transition text-base"
                 />
                 <input
