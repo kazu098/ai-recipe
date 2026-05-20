@@ -56,13 +56,33 @@ type SubRecipe = {
   seasonings: RecipeIngredient[];
   steps: string[];
 };
+type HotcookGuide = {
+  category: string;
+  category_description: string;
+  menu_selection: {
+    primary_path: string;
+    auto_menu_examples: string[];
+    manual_fallback: {
+      mode: string;
+      stir: boolean;
+      time_min_min: number;
+      time_max_min: number;
+      time_condition: string;
+    };
+  };
+  water_note: string;
+  stir_note: string;
+  time_note: string;
+  safety_notes: string[];
+  capacity_warning: string;
+};
 type RecipeData = {
   title: string;
   servings: number;
   ingredients: RecipeIngredient[];
   seasonings: RecipeIngredient[];
   steps: string[];
-  hotcook_menu?: string[];
+  hotcook?: HotcookGuide;
   tips?: string;
   side_recipe?: SubRecipe;
   soup_recipe?: SubRecipe;
@@ -1155,6 +1175,91 @@ function AnalyzingView({
 
 // ─── Sub recipe card ──────────────────────────────────────────────────────────
 
+function HotcookGuideCard({ guide }: { guide: HotcookGuide }) {
+  const m = guide.menu_selection;
+  return (
+    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-200 overflow-hidden">
+      <div className="px-4 pt-4 pb-3 border-b border-green-100">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-lg">🍲</span>
+          <p className="text-xs font-semibold text-green-700">ホットクック調理ガイド</p>
+        </div>
+        <p className="font-bold text-green-900 text-base">{guide.category}</p>
+        <p className="text-xs text-green-700/70 mt-0.5">{guide.category_description}</p>
+      </div>
+
+      <div className="px-4 py-3 space-y-3">
+        <div>
+          <p className="text-xs font-semibold text-green-800 mb-1.5">📱 実機での操作</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {m.primary_path.split(/\s*→\s*/).map((step, i, arr) => (
+              <span key={i} className="flex items-center gap-1.5">
+                <span className="bg-white border border-green-200 text-green-800 text-xs px-2 py-1 rounded-lg font-medium whitespace-nowrap">
+                  {step}
+                </span>
+                {i < arr.length - 1 && <span className="text-green-300 text-xs">→</span>}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {m.auto_menu_examples.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-green-800 mb-1.5">💡 この自動メニューが使えます</p>
+            <div className="flex flex-wrap gap-1.5">
+              {m.auto_menu_examples.slice(0, 4).map((ex, i) => (
+                <span
+                  key={i}
+                  className="bg-white border border-green-200 text-green-700 text-xs px-2 py-0.5 rounded-full"
+                >
+                  {ex}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white/60 rounded-xl p-2.5 border border-green-100">
+          <p className="text-xs font-semibold text-green-800 mb-1">🛠 自動メニューがない場合の手動設定</p>
+          <p className="text-sm text-green-900 leading-relaxed">{m.manual_fallback.mode}</p>
+          <p className="text-xs text-green-700 mt-0.5">
+            沸とう後 <span className="font-bold">{m.manual_fallback.time_min_min}〜{m.manual_fallback.time_max_min}分</span>
+            （{m.manual_fallback.time_condition}）
+          </p>
+        </div>
+      </div>
+
+      <div className="px-4 pb-3">
+        <p className="text-xs font-semibold text-green-800 mb-1.5">⚠ 調理ポイント</p>
+        <div className="space-y-1.5">
+          <div className="flex gap-2 text-xs text-gray-700">
+            <span className="flex-shrink-0">💧</span>
+            <span className="leading-relaxed">{guide.water_note}</span>
+          </div>
+          <div className="flex gap-2 text-xs text-gray-700">
+            <span className="flex-shrink-0">🔄</span>
+            <span className="leading-relaxed">{guide.stir_note}</span>
+          </div>
+          <div className="flex gap-2 text-xs text-gray-700">
+            <span className="flex-shrink-0">⏱</span>
+            <span className="leading-relaxed">{guide.time_note}</span>
+          </div>
+          <div className="flex gap-2 text-xs text-gray-700">
+            <span className="flex-shrink-0">📏</span>
+            <span className="leading-relaxed">{guide.capacity_warning}</span>
+          </div>
+          {guide.safety_notes.map((note, i) => (
+            <div key={i} className="flex gap-2 text-xs text-amber-700">
+              <span className="flex-shrink-0">⚠</span>
+              <span className="leading-relaxed">{note}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SubRecipeCard({
   label,
   icon,
@@ -1287,23 +1392,7 @@ function RecipeView({
               </div>
             )}
 
-            {recipe.hotcook_menu && recipe.hotcook_menu.length > 0 && (
-              <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
-                <p className="font-semibold text-green-800 mb-3">{t("hotcook")}</p>
-                <div className="flex flex-wrap items-center gap-1.5 text-sm">
-                  {recipe.hotcook_menu.map((step, i) => (
-                    <span key={i} className="flex items-center gap-1.5">
-                      <span className="bg-white border border-green-200 text-green-800 px-2.5 py-1 rounded-lg font-medium whitespace-nowrap">
-                        {step}
-                      </span>
-                      {i < recipe.hotcook_menu!.length - 1 && (
-                        <span className="text-green-300">→</span>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+            {recipe.hotcook && <HotcookGuideCard guide={recipe.hotcook} />}
 
             <div className="bg-white rounded-2xl p-4 border border-gray-100">
               <p className="font-semibold text-gray-800 mb-4">{t("steps")}</p>
