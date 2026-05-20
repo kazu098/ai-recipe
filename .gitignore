@@ -16,3 +16,9 @@ public/swe-worker-*.js
 public/workbox-*.js
 .vercel
 screenshots/
+
+# iOS build - Xcode generated files
+ios-build/src/Pods/
+ios-build/src/*.xcodeproj/xcuserdata/
+ios-build/src/*.xcworkspace/xcuserdata/
+ios-build/src/DerivedData/
