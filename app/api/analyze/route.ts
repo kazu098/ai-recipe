@@ -343,6 +343,7 @@ async function recognizeIngredientsOneImageGPT4o(dataUrl: string): Promise<strin
 export async function POST(req: NextRequest) {
   const {
     imageDataUrls,
+    ingredients_override,
     tired_mode = false,
     meal_time = "夕食",
     meal_components = [{ role: "main", label: "メイン" }],
@@ -351,8 +352,9 @@ export async function POST(req: NextRequest) {
     user_request = "",
   } = await req.json();
 
-  if (!imageDataUrls?.length) {
-    return new Response("imageDataUrls required", { status: 400 });
+  // ingredients_override がある場合は画像不要（食材確認画面からの呼び出し）
+  if (!ingredients_override?.length && !imageDataUrls?.length) {
+    return new Response("imageDataUrls または ingredients_override が必要です", { status: 400 });
   }
 
   const encoder = new TextEncoder();
@@ -380,26 +382,37 @@ export async function POST(req: NextRequest) {
       let fullText = "";
 
       try {
-        // Phase 1: 画像を1枚ずつ並列認識 → マージ → ingredient イベント送信
+        // Phase 1: 食材認識
+        // ingredients_override がある場合は認識済みリストをそのまま使用（食材確認画面からの呼び出し）
         let ingredients: string[] = [];
-        if (process.env.GEMINI_API_KEY) {
+        if (ingredients_override?.length) {
+          ingredients = ingredients_override as string[];
+          for (const item of ingredients) {
+            send("ingredient", { item });
+          }
+          console.log("[analyze] using ingredients_override:", ingredients);
+        } else if (process.env.GEMINI_API_KEY) {
           const lists = await Promise.all(
             (imageDataUrls as string[]).map(recognizeIngredientsOneImage)
           );
           ingredients = mergeIngredients(lists);
+          for (const item of ingredients) {
+            send("ingredient", { item });
+          }
+          console.log("[analyze] merged ingredients:", ingredients);
         } else if (process.env.OPENAI_API_KEY) {
           const lists = await Promise.all(
             (imageDataUrls as string[]).map(recognizeIngredientsOneImageGPT4o)
           );
           ingredients = mergeIngredients(lists);
+          for (const item of ingredients) {
+            send("ingredient", { item });
+          }
+          console.log("[analyze] merged ingredients:", ingredients);
         } else {
           send("error", { message: "GEMINI_API_KEY または OPENAI_API_KEY を .env.local に設定してください" });
           return;
         }
-        for (const item of ingredients) {
-          send("ingredient", { item });
-        }
-        console.log("[analyze] merged ingredients:", ingredients);
 
         // Phase 2: 食材リストのみで献立生成（画像再送なし）
         const prompt = buildPrompt(
