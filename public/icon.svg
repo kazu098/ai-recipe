@@ -1,4 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="112" fill="#FF6B35"/>
-  <text x="256" y="350" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="300" font-weight="800" fill="#FEFDF8">S</text>
+  <!-- Dark green background -->
+  <rect width="512" height="512" rx="110" fill="#2A6B54"/>
+
+  <!-- Freezer (top section) -->
+  <rect x="80" y="52" width="352" height="146" rx="18" fill="#F4EFDB"/>
+  <!-- Freezer handle -->
+  <rect x="95" y="108" width="13" height="40" rx="6" fill="#2A6B54" opacity="0.38"/>
+
+  <!-- Main fridge (bottom section) -->
+  <rect x="80" y="208" width="352" height="254" rx="18" fill="#F4EFDB"/>
+  <!-- Main fridge handle -->
+  <rect x="95" y="288" width="13" height="50" rx="6" fill="#2A6B54" opacity="0.38"/>
+
+  <!-- Camera viewfinder bump -->
+  <rect x="216" y="262" width="58" height="24" rx="12" fill="#F4EFDB"/>
+
+  <!-- Camera body -->
+  <rect x="158" y="280" width="196" height="138" rx="20" fill="#F4EFDB"/>
+
+  <!-- Camera lens: dark fill (simulates looking through) -->
+  <circle cx="256" cy="349" r="56" fill="#2A6B54"/>
+  <!-- Camera lens: cream outer ring -->
+  <circle cx="256" cy="349" r="56" fill="none" stroke="#F4EFDB" stroke-width="13"/>
+  <!-- Camera lens: inner circle -->
+  <circle cx="256" cy="349" r="32" fill="#2A6B54" opacity="0.55"/>
+  <!-- Camera lens: subtle highlight -->
+  <circle cx="244" cy="337" r="10" fill="white" opacity="0.28"/>
+
+  <!-- Orange indicator dot -->
+  <circle cx="328" cy="298" r="16" fill="#E5431E"/>
 </svg>
