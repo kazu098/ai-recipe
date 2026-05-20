@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.snapmeal.app",
+    "sha256_cert_fingerprints": [
+      "AB:A6:B6:F2:F6:C5:F7:60:FF:65:8C:A1:35:C4:9A:07:5E:84:18:05:ED:BA:C8:F4:C4:59:98:BC:0C:D5:A9:D8"
+    ]
+  }
+}]
