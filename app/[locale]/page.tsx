@@ -216,7 +216,10 @@ export default function HomePage() {
         setView("onboarding");
       }
       const savedFavorites = localStorage.getItem("snapmeal_favorites");
-      if (savedFavorites) setFavorites(JSON.parse(savedFavorites));
+      if (savedFavorites) {
+        const parsed = JSON.parse(savedFavorites) as string[];
+        setFavorites(parsed);
+      }
     } finally {
       setSettingsLoaded(true);
     }
@@ -237,6 +240,19 @@ export default function HomePage() {
           { id: session.user.id, email: session.user.email ?? "" },
           { onConflict: "id", ignoreDuplicates: true }
         );
+        // DBからお気に入りを読み込み（localStorage とマージ）
+        fetch("/api/favorites")
+          .then((r) => r.json())
+          .then((d) => {
+            if (Array.isArray(d.favorites)) {
+              setFavorites((prev) => {
+                const merged = Array.from(new Set([...prev, ...d.favorites as string[]]));
+                localStorage.setItem("snapmeal_favorites", JSON.stringify(merged));
+                return merged;
+              });
+            }
+          })
+          .catch(() => {});
       } else if (event === "SIGNED_OUT") {
         setUser(null);
       }
@@ -363,10 +379,14 @@ export default function HomePage() {
       return;
     }
     setFavorites((prev) => {
-      const next = prev.includes(meal.id)
-        ? prev.filter((id) => id !== meal.id)
-        : [...prev, meal.id];
+      const isFav = prev.includes(meal.name);
+      const next = isFav ? prev.filter((n) => n !== meal.name) : [...prev, meal.name];
       localStorage.setItem("snapmeal_favorites", JSON.stringify(next));
+      if (isFav) {
+        fetch("/api/favorites", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ meal_name: meal.name }) }).catch(() => {});
+      } else {
+        fetch("/api/favorites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ meal_name: meal.name, genre: meal.genre, reason: meal.reason, time_minutes: meal.time_minutes, difficulty: meal.difficulty }) }).catch(() => {});
+      }
       return next;
     });
   }, [user]);
@@ -1846,7 +1866,7 @@ function ResultView({
   const canGoNext = activeMealIdx < meals.length - 1;
   const canGoPrev = activeMealIdx > 0;
   const totalSlots = 3;
-  const isFavorite = favorites.includes(meal.id);
+  const isFavorite = favorites.includes(meal.name);
 
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
