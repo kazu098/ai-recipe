@@ -113,8 +113,19 @@
     "divider": "or",
     "google_cta": "Sign in with Google",
     "error_invalid": "Invalid email or password",
+    "error_not_confirmed": "Email not confirmed. Would you like us to resend the confirmation email?",
+    "error_already_registered": "This email is already registered. Please sign in instead.",
     "error_generic": "Something went wrong. Please try again.",
-    "signup_success": "Check your email for a confirmation link."
+    "resend_email": "Resend confirmation email",
+    "email_resent": "Confirmation email resent",
+    "signup_success": "Check your email for a confirmation link. If you already have an account, please sign in.",
+    "reset_title": "Set new password",
+    "reset_new_password": "New password",
+    "reset_confirm_password": "Confirm password",
+    "reset_cta": "Update password",
+    "reset_success": "Password updated. Please sign in.",
+    "reset_mismatch": "Passwords do not match",
+    "reset_weak": "Password must be at least 8 characters"
   },
   "loginPrompt": {
     "fav_title": "Save your favorites",

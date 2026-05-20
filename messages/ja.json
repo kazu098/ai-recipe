@@ -113,8 +113,19 @@
     "divider": "または",
     "google_cta": "Google でログイン",
     "error_invalid": "メールアドレスまたはパスワードが正しくありません",
+    "error_not_confirmed": "メールアドレスが確認されていません。確認メールを再送しますか？",
+    "error_already_registered": "このメールアドレスはすでに登録されています。ログインタブからログインしてください。",
     "error_generic": "エラーが発生しました。もう一度お試しください",
-    "signup_success": "確認メールを送りました。メール内のリンクをクリックしてください。"
+    "resend_email": "確認メールを再送する",
+    "email_resent": "確認メールを再送しました",
+    "signup_success": "確認メールを送りました。すでにアカウントをお持ちの場合はログインしてください。",
+    "reset_title": "新しいパスワードを設定",
+    "reset_new_password": "新しいパスワード",
+    "reset_confirm_password": "パスワードを確認",
+    "reset_cta": "パスワードを変更する",
+    "reset_success": "パスワードを変更しました。ログインしてください。",
+    "reset_mismatch": "パスワードが一致しません",
+    "reset_weak": "パスワードは8文字以上で入力してください"
   },
   "loginPrompt": {
     "fav_title": "お気に入りを保存しよう",
