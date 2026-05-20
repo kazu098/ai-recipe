@@ -1563,8 +1563,19 @@ function LoginView({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [showResend, setShowResend] = useState(false);
 
   const supabase = createClient();
+
+  const handleResend = async () => {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}/${locale}/auth/callback` },
+    });
+    if (error) setError(t("error_generic"));
+    else { setInfo(t("email_resent")); setShowResend(false); }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1583,14 +1594,20 @@ function LoginView({ onBack }: { onBack: () => void }) {
     }
 
     if (mode === "signup") {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: { emailRedirectTo: `${window.location.origin}/${locale}/auth/callback` },
       });
       setLoading(false);
-      if (error) setError(t("error_generic"));
-      else setInfo(t("signup_success"));
+      if (error) {
+        setError(t("error_generic"));
+      } else if (data.session) {
+        // メール確認なしで即ログイン成功（確認不要設定の場合）
+        setInfo(null);
+      } else {
+        setInfo(t("signup_success"));
+      }
       return;
     }
 
@@ -1600,7 +1617,15 @@ function LoginView({ onBack }: { onBack: () => void }) {
       password,
     });
     setLoading(false);
-    if (error) setError(t("error_invalid"));
+    if (error) {
+      if (error.code === "email_not_confirmed") {
+        setError(t("error_not_confirmed"));
+        setShowResend(true);
+      } else {
+        setError(t("error_invalid"));
+        setShowResend(false);
+      }
+    }
   };
 
   const handleGoogle = async () => {
@@ -1698,7 +1723,16 @@ function LoginView({ onBack }: { onBack: () => void }) {
                   className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-green-100 transition text-base"
                 />
 
-                {error && <p className="text-sm text-red-500 bg-red-50 py-2 px-4 rounded-xl text-center">{error}</p>}
+                {error && (
+                  <div className="bg-red-50 py-2 px-4 rounded-xl text-center">
+                    <p className="text-sm text-red-500">{error}</p>
+                    {showResend && (
+                      <button type="button" onClick={handleResend} className="text-xs text-red-600 underline mt-1">
+                        {t("resend_email")}
+                      </button>
+                    )}
+                  </div>
+                )}
                 {info && <p className="text-sm text-green-600 bg-green-50 py-2 px-4 rounded-xl text-center">{info}</p>}
 
                 <button
