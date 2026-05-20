@@ -1719,6 +1719,7 @@ function LoginView({ onBack }: { onBack: () => void }) {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t("password_placeholder")}
                   required
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
                   minLength={mode === "signup" ? 8 : undefined}
                   className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-green-100 transition text-base"
                 />
