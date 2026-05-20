@@ -222,3 +222,50 @@ export async function getUsageStatus(
 
   return { count, limit, plan };
 }
+
+/** お気に入り献立の一覧を取得（meal_name の配列を返す） */
+export async function getFavorites(userId: string): Promise<string[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("favorites")
+    .select("meal_name")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  return (data ?? []).map((r: { meal_name: string }) => r.meal_name);
+}
+
+/** お気に入りに追加（既存なら無視） */
+export async function addFavorite(params: {
+  userId: string;
+  mealName: string;
+  genre?: string;
+  reason?: string;
+  timeMinutes?: number;
+  difficulty?: string;
+}): Promise<void> {
+  const supabase = createClient();
+  await supabase.from("favorites").upsert(
+    {
+      user_id: params.userId,
+      meal_name: params.mealName,
+      genre: params.genre ?? null,
+      reason: params.reason ?? null,
+      time_minutes: params.timeMinutes ?? null,
+      difficulty: params.difficulty ?? null,
+    },
+    { onConflict: "user_id,meal_name", ignoreDuplicates: true }
+  );
+}
+
+/** お気に入りから削除 */
+export async function removeFavorite(params: {
+  userId: string;
+  mealName: string;
+}): Promise<void> {
+  const supabase = createClient();
+  await supabase
+    .from("favorites")
+    .delete()
+    .eq("user_id", params.userId)
+    .eq("meal_name", params.mealName);
+}
