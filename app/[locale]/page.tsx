@@ -1600,7 +1600,11 @@ function LoginView({ onBack }: { onBack: () => void }) {
       });
       setLoading(false);
       if (error) {
-        setError(t("error_generic"));
+        if (error.message?.includes("Database error saving new user") || error.code === "unexpected_failure") {
+          setError(t("error_already_registered"));
+        } else {
+          setError(t("error_generic"));
+        }
       } else if (data.session) {
         // メール確認なしで即ログイン成功（確認不要設定の場合）
         setInfo(null);

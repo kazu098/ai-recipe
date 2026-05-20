@@ -114,6 +114,7 @@
     "google_cta": "Google でログイン",
     "error_invalid": "メールアドレスまたはパスワードが正しくありません",
     "error_not_confirmed": "メールアドレスが確認されていません。確認メールを再送しますか？",
+    "error_already_registered": "このメールアドレスはすでに登録されています。ログインタブからログインしてください。",
     "error_generic": "エラーが発生しました。もう一度お試しください",
     "resend_email": "確認メールを再送する",
     "email_resent": "確認メールを再送しました",

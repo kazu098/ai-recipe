@@ -114,6 +114,7 @@
     "google_cta": "Sign in with Google",
     "error_invalid": "Invalid email or password",
     "error_not_confirmed": "Email not confirmed. Would you like us to resend the confirmation email?",
+    "error_already_registered": "This email is already registered. Please sign in instead.",
     "error_generic": "Something went wrong. Please try again.",
     "resend_email": "Resend confirmation email",
     "email_resent": "Confirmation email resent",
