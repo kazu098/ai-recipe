@@ -17,7 +17,7 @@ import { Settings, ArrowLeft, Camera, Heart, Zap, ChefHat } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AppView = "onboarding" | "upload" | "analyzing" | "result" | "recipe" | "settings" | "login";
+type AppView = "onboarding" | "upload" | "recognizing" | "ingredient-confirm" | "analyzing" | "result" | "recipe" | "settings" | "login";
 type AnalyzingPhase = "scanning" | "generating";
 
 type SubDish = {
@@ -180,6 +180,7 @@ export default function HomePage() {
   const [loginPrompt, setLoginPrompt] = useState<{ show: boolean; reason: "favorite" | "limit" }>({ show: false, reason: "favorite" });
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [confirmedIngredients, setConfirmedIngredients] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
   const locale = useLocale() as "ja" | "en";
   const tUpload = useTranslations("upload");
@@ -350,8 +351,47 @@ export default function HomePage() {
     });
   }, [user]);
 
-  const startAnalysis = useCallback(async () => {
+  // Phase A-1: 画像認識のみ → 食材確認画面へ
+  const startRecognition = useCallback(async () => {
     if (!images.length) return;
+
+    if (!user) {
+      const count = getGuestCount();
+      if (count >= GUEST_LIMIT) {
+        setLoginPrompt({ show: true, reason: "limit" });
+        return;
+      }
+    }
+
+    setView("recognizing");
+    setStreamingIngredients([]);
+    setMeals([]);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/recognize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageDataUrls: images.map((i) => i.dataUrl) }),
+      });
+      const json = await res.json() as { ingredients?: string[]; error?: string };
+      if (!res.ok || !json.ingredients) {
+        setError(json.error ?? tUpload("error"));
+        setView("upload");
+        return;
+      }
+      setConfirmedIngredients(json.ingredients);
+      setView("ingredient-confirm");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : tUpload("error"));
+      setView("upload");
+    }
+  }, [images, user, tUpload]);
+
+  // Phase A-2: 確定した食材リストで献立生成
+  const startAnalysis = useCallback(async (ingredientsToUse?: string[]) => {
+    const useOverride = ingredientsToUse && ingredientsToUse.length > 0;
+    if (!useOverride && !images.length) return;
 
     if (!user) {
       const count = getGuestCount();
@@ -364,23 +404,28 @@ export default function HomePage() {
 
     setView("analyzing");
     setAnalyzingPhase("scanning");
-    setStreamingIngredients([]);
+    setStreamingIngredients(useOverride ? ingredientsToUse! : []);
     setMeals([]);
     setError(null);
 
     try {
+      const body: Record<string, unknown> = {
+        tired_mode: tiredMode,
+        meal_time: locale === "ja" ? "夕食" : "dinner",
+        meal_components: getActiveComponents(selectedPattern, enabledRoles, locale),
+        locale,
+        appliances: settings?.appliances ?? [],
+        user_request: userRequest,
+      };
+      if (useOverride) {
+        body.ingredients_override = ingredientsToUse;
+      } else {
+        body.imageDataUrls = images.map((i) => i.dataUrl);
+      }
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageDataUrls: images.map((i) => i.dataUrl),
-          tired_mode: tiredMode,
-          meal_time: locale === "ja" ? "夕食" : "dinner",
-          meal_components: getActiveComponents(selectedPattern, enabledRoles, locale),
-          locale,
-          appliances: settings?.appliances ?? [],
-          user_request: userRequest,
-        }),
+        body: JSON.stringify(body),
       });
 
       let capturedMeal: Meal | null = null;
@@ -426,7 +471,7 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : tUpload("error"));
       setView("upload");
     }
-  }, [images, tiredMode, selectedPattern, enabledRoles, locale, settings, userRequest, user, startAlternatives]);
+  }, [images, tiredMode, selectedPattern, enabledRoles, locale, settings, userRequest, user, startAlternatives, tUpload]);
 
   // ── Rendering ───────────────────────────────────────────────────────────────
 
@@ -449,6 +494,23 @@ export default function HomePage() {
         onLogin={() => setView("login")}
         user={user}
         locale={locale}
+      />
+    );
+  }
+
+  if (view === "recognizing") {
+    return <RecognizingView />;
+  }
+
+  if (view === "ingredient-confirm") {
+    return (
+      <IngredientConfirmView
+        ingredients={confirmedIngredients}
+        onConfirm={(edited) => {
+          setConfirmedIngredients(edited);
+          startAnalysis(edited);
+        }}
+        onBack={() => setView("upload")}
       />
     );
   }
@@ -523,7 +585,7 @@ export default function HomePage() {
         onChangeAppliance={setSelectedAppliance}
         userRequest={userRequest}
         onChangeUserRequest={setUserRequest}
-        onAnalyze={startAnalysis}
+        onAnalyze={startRecognition}
         onOpenSettings={() => setView("settings")}
       />
       {loginPrompt.show && (
@@ -1130,6 +1192,118 @@ function UploadView({
         {t("analyze")}
       </button>
       </div>
+    </main>
+  );
+}
+
+// ─── Recognizing view ────────────────────────────────────────────────────────
+
+function RecognizingView() {
+  return (
+    <main className="min-h-screen bg-surface flex flex-col items-center justify-center max-w-lg mx-auto px-6">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-lg font-semibold text-gray-800">食材を認識中...</p>
+        <p className="text-sm text-muted">冷蔵庫の画像を解析しています</p>
+      </div>
+    </main>
+  );
+}
+
+// ─── Ingredient confirm view ──────────────────────────────────────────────────
+
+function IngredientConfirmView({
+  ingredients,
+  onConfirm,
+  onBack,
+}: {
+  ingredients: string[];
+  onConfirm: (edited: string[]) => void;
+  onBack: () => void;
+}) {
+  const [items, setItems] = useState<string[]>(ingredients);
+  const [input, setInput] = useState("");
+
+  const addItem = () => {
+    const trimmed = input.trim();
+    if (trimmed && !items.includes(trimmed)) {
+      setItems((prev) => [...prev, trimmed]);
+    }
+    setInput("");
+  };
+
+  const removeItem = (idx: number) => {
+    setItems((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto px-4 py-6">
+      {/* ヘッダー */}
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-100 transition">
+          <ArrowLeft size={20} className="text-gray-600" />
+        </button>
+        <div>
+          <h1 className="text-lg font-bold text-gray-900">認識した食材</h1>
+          <p className="text-xs text-muted">追加・削除して内容を確認してください</p>
+        </div>
+      </div>
+
+      {/* 食材タグ */}
+      <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100 flex-1">
+        {items.length === 0 ? (
+          <p className="text-sm text-muted text-center py-8">食材が認識されませんでした</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {items.map((item, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1 bg-green-50 text-green-800 border border-green-200 rounded-full px-3 py-1 text-sm font-medium"
+              >
+                {item}
+                <button
+                  onClick={() => removeItem(i)}
+                  className="ml-1 text-green-500 hover:text-red-500 transition leading-none"
+                  aria-label={`${item}を削除`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 食材追加 */}
+      <div className="bg-white rounded-2xl p-4 mb-6 border border-gray-100">
+        <p className="text-sm font-semibold text-gray-700 mb-2">食材を追加</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addItem()}
+            placeholder="例: 豚バラ肉、卵..."
+            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary bg-gray-50"
+          />
+          <button
+            onClick={addItem}
+            disabled={!input.trim()}
+            className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition"
+          >
+            追加
+          </button>
+        </div>
+      </div>
+
+      {/* 確定ボタン */}
+      <button
+        onClick={() => onConfirm(items)}
+        disabled={items.length === 0}
+        className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-green-200 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+      >
+        この食材で献立を作る
+      </button>
     </main>
   );
 }
