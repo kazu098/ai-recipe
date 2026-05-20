@@ -403,7 +403,7 @@ export default function HomePage() {
     }
 
     setView("analyzing");
-    setAnalyzingPhase("scanning");
+    setAnalyzingPhase(useOverride ? "generating" : "scanning");
     setStreamingIngredients(useOverride ? ingredientsToUse! : []);
     setMeals([]);
     setError(null);
@@ -434,6 +434,7 @@ export default function HomePage() {
 
       await readSSE(res, (type, data) => {
         if (type === "ingredient") {
+          if (useOverride) return; // 確認済み食材は再スキャン不要
           const d = data as { item: string };
           setStreamingIngredients((prev) => [...prev, d.item]);
         } else if (type === "meal") {
@@ -506,6 +507,7 @@ export default function HomePage() {
     return (
       <IngredientConfirmView
         ingredients={confirmedIngredients}
+        images={images}
         onConfirm={(edited) => {
           setConfirmedIngredients(edited);
           startAnalysis(edited);
@@ -1214,15 +1216,18 @@ function RecognizingView() {
 
 function IngredientConfirmView({
   ingredients,
+  images,
   onConfirm,
   onBack,
 }: {
   ingredients: string[];
+  images: ImageItem[];
   onConfirm: (edited: string[]) => void;
   onBack: () => void;
 }) {
   const [items, setItems] = useState<string[]>(ingredients);
   const [input, setInput] = useState("");
+  const [expandedImg, setExpandedImg] = useState<string | null>(null);
 
   const addItem = () => {
     const trimmed = input.trim();
@@ -1239,43 +1244,62 @@ function IngredientConfirmView({
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto px-4 py-6">
       {/* ヘッダー */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4">
         <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-100 transition">
           <ArrowLeft size={20} className="text-gray-600" />
         </button>
         <div>
           <h1 className="text-lg font-bold text-gray-900">認識した食材</h1>
-          <p className="text-xs text-muted">追加・削除して内容を確認してください</p>
+          <p className="text-xs text-muted">画像を確認しながら追加・削除できます</p>
         </div>
       </div>
 
+      {/* 撮影画像サムネイル */}
+      {images.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1">
+          {images.map((img, i) => (
+            <button
+              key={i}
+              onClick={() => setExpandedImg(img.dataUrl)}
+              className="flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 border-gray-200 hover:border-primary transition"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={img.dataUrl}
+                alt={`冷蔵庫 ${i + 1}`}
+                className="w-full h-full object-cover"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 食材タグ */}
-      <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100 flex-1">
+      <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
+        <p className="text-sm font-semibold text-gray-700 mb-3">
+          認識した食材
+          <span className="ml-2 text-xs font-normal text-muted">（タップで削除）</span>
+        </p>
         {items.length === 0 ? (
-          <p className="text-sm text-muted text-center py-8">食材が認識されませんでした</p>
+          <p className="text-sm text-muted text-center py-6">食材が認識されませんでした</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {items.map((item, i) => (
-              <span
+              <button
                 key={i}
-                className="inline-flex items-center gap-1 bg-green-50 text-green-800 border border-green-200 rounded-full px-3 py-1 text-sm font-medium"
+                onClick={() => removeItem(i)}
+                className="inline-flex items-center gap-1 bg-green-50 text-green-800 border border-green-200 rounded-full px-3 py-1.5 text-sm font-medium hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition group"
               >
                 {item}
-                <button
-                  onClick={() => removeItem(i)}
-                  className="ml-1 text-green-500 hover:text-red-500 transition leading-none"
-                  aria-label={`${item}を削除`}
-                >
-                  ×
-                </button>
-              </span>
+                <span className="text-green-400 group-hover:text-red-400 transition leading-none">×</span>
+              </button>
             ))}
           </div>
         )}
       </div>
 
       {/* 食材追加 */}
-      <div className="bg-white rounded-2xl p-4 mb-6 border border-gray-100">
+      <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
         <p className="text-sm font-semibold text-gray-700 mb-2">食材を追加</p>
         <div className="flex gap-2">
           <input
@@ -1304,6 +1328,28 @@ function IngredientConfirmView({
       >
         この食材で献立を作る
       </button>
+
+      {/* 画像拡大モーダル */}
+      {expandedImg && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setExpandedImg(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={expandedImg}
+            alt="冷蔵庫の写真"
+            className="max-w-full max-h-full rounded-2xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            className="absolute top-4 right-4 text-white text-3xl leading-none"
+            onClick={() => setExpandedImg(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
     </main>
   );
 }
