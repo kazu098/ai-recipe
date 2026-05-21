@@ -881,7 +881,7 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
           </div>
           <button
             onClick={() => setStep(2)}
-            className="w-full mt-auto pt-8 bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-green-200 hover:opacity-90 transition"
+            className="w-full mt-auto pt-4 bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-green-200 hover:opacity-90 transition"
           >
             {t("next")}
           </button>
@@ -911,7 +911,7 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
               </button>
             ))}
           </div>
-          <div className="flex gap-3 mt-auto pt-8">
+          <div className="flex gap-3 mt-auto pt-4">
             <button
               onClick={() => setStep(1)}
               className="flex-1 py-4 rounded-2xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
@@ -939,7 +939,7 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
             className="w-full border-2 border-gray-100 rounded-2xl p-4 text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary resize-none bg-white"
             rows={3}
           />
-          <div className="flex gap-3 mt-auto pt-8">
+          <div className="flex gap-3 mt-auto pt-4">
             <button
               onClick={() => setStep(2)}
               className="flex-1 py-4 rounded-2xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
