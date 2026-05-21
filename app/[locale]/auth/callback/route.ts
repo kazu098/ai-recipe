@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 
 export async function GET(
   req: NextRequest,
@@ -12,28 +11,43 @@ export async function GET(
   const type = req.nextUrl.searchParams.get("type");
   const origin = req.nextUrl.origin;
 
+  const redirectTo =
+    type === "recovery"
+      ? `${origin}/${locale}/auth/reset-password`
+      : `${origin}/${locale}`;
+
+  // リダイレクトレスポンスを先に生成し、Cookieをこのレスポンスに直接設定する。
+  // cookies() from next/headers + cookieStore.set() では NextResponse.redirect() に
+  // Cookieが引き継がれないため、セッションがクライアントに届かない。
+  const response = NextResponse.redirect(redirectTo);
+
   if (code) {
-    const cookieStore = cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
       {
         cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (c) => {
-            try {
-              c.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              );
-            } catch {}
+          getAll: () => req.cookies.getAll(),
+          setAll: (cookiesToSet) => {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              // リクエストCookieにも反映（後続の同一リクエスト内処理のため）
+              req.cookies.set(name, value);
+              // レスポンスにSet-Cookieヘッダーとして付与
+              response.cookies.set(name, value, options);
+            });
           },
         },
       }
     );
-    const { data } = await supabase.auth.exchangeCodeForSession(code);
+
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (error) {
+      console.error("[auth/callback] exchangeCodeForSession error:", error.message);
+    }
 
     // profiles 行がなければ作成（RLS 回避のため admin クライアントを使用）
-    if (data.user) {
+    if (data?.user) {
       const admin = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -47,10 +61,5 @@ export async function GET(
     }
   }
 
-  // パスワードリセットの場合は設定画面へ
-  if (type === "recovery") {
-    return NextResponse.redirect(`${origin}/${locale}/auth/reset-password`);
-  }
-
-  return NextResponse.redirect(`${origin}/${locale}`);
+  return response;
 }
