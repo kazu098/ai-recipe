@@ -1,0 +1,48 @@
+import { createClient } from "@/lib/supabase/client";
+
+const ANON_ID_KEY = "snapmeal_anon_id";
+
+function getAnonId(): string {
+  let id = localStorage.getItem(ANON_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(ANON_ID_KEY, id);
+  }
+  return id;
+}
+
+export async function trackEvent(
+  eventName: string,
+  properties: Record<string, unknown> = {}
+): Promise<void> {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from("analytics_events").insert({
+      user_id: user?.id ?? null,
+      anonymous_id: getAnonId(),
+      event_name: eventName,
+      properties,
+    });
+  } catch {
+    // Analytics failures should never affect UX
+  }
+}
+
+// ─── イベント名定数 ────────────────────────────────────────────────────────────
+
+export const EVENTS = {
+  PHOTO_UPLOADED:     "photo_uploaded",
+  ANALYSIS_STARTED:   "analysis_started",
+  MEAL_SUGGESTED:     "meal_suggested",
+  ALTERNATIVE_VIEWED: "alternative_viewed",
+  MEAL_SELECTED:      "meal_selected",
+  RECIPE_COOKED:      "recipe_cooked",
+  RECIPE_NOT_COOKED:  "recipe_not_cooked",
+  GUEST_LIMIT_HIT:    "guest_limit_hit",
+  UPGRADE_MODAL_SHOWN:"upgrade_modal_shown",
+  LOGIN_PROMPTED:     "login_prompted",
+  LOGIN_COMPLETED:    "login_completed",
+  TIRED_MODE_TOGGLED: "tired_mode_toggled",
+  PATTERN_SELECTED:   "pattern_selected",
+} as const;
