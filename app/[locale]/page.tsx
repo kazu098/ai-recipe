@@ -47,6 +47,10 @@ type UserSettings = {
   servings: number;
   appliances: string[];
   ng_foods: string;
+  has_children?: boolean;
+  children_age_note?: string;
+  taste_preference?: "light" | "normal" | "rich";
+  cooking_policy?: string;
 };
 
 type RecipeIngredient = { name: string; amount: string };
@@ -253,6 +257,30 @@ export default function HomePage() {
             }
           })
           .catch(() => {});
+        // DBから家庭設定を読み込み（DBが優先、なければ localStorage を DB に書き込む）
+        fetch("/api/settings")
+          .then((r) => r.json())
+          .then((d) => {
+            if (d.settings && Object.keys(d.settings).length > 0) {
+              const s = d.settings as UserSettings;
+              setSettings(s);
+              setSelectedAppliance(
+                s.appliances?.includes("hotcook") ? "hotcook" : (s.appliances?.[0] ?? "pan")
+              );
+              localStorage.setItem("snapmeal_settings", JSON.stringify(s));
+            } else {
+              // DB未登録 → localStorage の設定を DB に保存
+              const stored = localStorage.getItem("snapmeal_settings");
+              if (stored) {
+                fetch("/api/settings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ settings: JSON.parse(stored) }),
+                }).catch(() => {});
+              }
+            }
+          })
+          .catch(() => {});
       } else if (event === "SIGNED_OUT") {
         setUser(null);
       }
@@ -290,7 +318,15 @@ export default function HomePage() {
     setSettings(s);
     setSelectedAppliance(defaultAppliance(s));
     setView("upload");
-  }, []);
+    // ログイン済みなら DB にも保存
+    if (user) {
+      fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: s }),
+      }).catch(() => {});
+    }
+  }, [user]);
 
   // ── Recipe (Phase C) ────────────────────────────────────────────────────────
 
@@ -456,6 +492,13 @@ export default function HomePage() {
         locale,
         appliances: settings?.appliances ?? [],
         user_request: userRequest,
+        household_profile: {
+          has_children: settings?.has_children,
+          children_age_note: settings?.children_age_note,
+          taste_preference: settings?.taste_preference,
+          cooking_policy: settings?.cooking_policy,
+          ng_foods: settings?.ng_foods,
+        },
       };
       if (useOverride) {
         body.ingredients_override = ingredientsToUse;
@@ -1073,6 +1116,10 @@ function SettingsView({
   const [servings, setServings] = useState(current.servings);
   const [appliances, setAppliances] = useState<string[]>(current.appliances);
   const [ngFoods, setNgFoods] = useState(current.ng_foods);
+  const [hasChildren, setHasChildren] = useState<boolean>(current.has_children ?? false);
+  const [childrenAgeNote, setChildrenAgeNote] = useState(current.children_age_note ?? "");
+  const [tastePreference, setTastePreference] = useState<"light" | "normal" | "rich">(current.taste_preference ?? "normal");
+  const [cookingPolicy, setCookingPolicy] = useState(current.cooking_policy ?? "");
   const [planInfo, setPlanInfo] = useState<{ plan: string; stripe_customer_id: string | null } | null>(null);
 
   useEffect(() => {
@@ -1161,6 +1208,68 @@ function SettingsView({
         </div>
 
         <div>
+          <p className="text-sm font-semibold text-gray-700 mb-3">お子さまはいますか？</p>
+          <div className="flex gap-2">
+            {([false, true] as const).map((val) => (
+              <button
+                key={String(val)}
+                onClick={() => setHasChildren(val)}
+                className={`flex-1 py-3 rounded-xl text-sm font-semibold transition border-2 ${
+                  hasChildren === val
+                    ? "border-primary bg-green-50 text-primary"
+                    : "border-gray-100 bg-white text-gray-600 hover:border-gray-200"
+                }`}
+              >
+                {val ? "いる" : "いない"}
+              </button>
+            ))}
+          </div>
+          {hasChildren && (
+            <input
+              type="text"
+              value={childrenAgeNote}
+              onChange={(e) => setChildrenAgeNote(e.target.value)}
+              placeholder="年齢メモ（例：3歳・7歳）"
+              className="mt-2 w-full border-2 border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary bg-white"
+            />
+          )}
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold text-gray-700 mb-3">味の好み</p>
+          <div className="flex gap-2">
+            {(["light", "normal", "rich"] as const).map((v) => {
+              const label = v === "light" ? "薄味" : v === "normal" ? "普通" : "濃いめ";
+              return (
+                <button
+                  key={v}
+                  onClick={() => setTastePreference(v)}
+                  className={`flex-1 py-3 rounded-xl text-sm font-semibold transition border-2 ${
+                    tastePreference === v
+                      ? "border-primary bg-green-50 text-primary"
+                      : "border-gray-100 bg-white text-gray-600 hover:border-gray-200"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold text-gray-700 mb-1">料理方針メモ</p>
+          <p className="text-xs text-gray-400 mb-3">例：時短優先、辛味なし、魚料理が得意</p>
+          <textarea
+            value={cookingPolicy}
+            onChange={(e) => setCookingPolicy(e.target.value)}
+            placeholder="自由にメモしてください"
+            className="w-full border-2 border-gray-100 rounded-2xl p-4 text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary resize-none bg-white text-sm"
+            rows={2}
+          />
+        </div>
+
+        <div>
           <p className="text-sm font-semibold text-gray-700 mb-3">{t("language")}</p>
           <LanguageSwitcher />
         </div>
@@ -1191,7 +1300,13 @@ function SettingsView({
 
       <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100 space-y-3">
         <button
-          onClick={() => onSave({ servings, appliances, ng_foods: ngFoods })}
+          onClick={() => onSave({
+            servings, appliances, ng_foods: ngFoods,
+            has_children: hasChildren,
+            children_age_note: childrenAgeNote,
+            taste_preference: tastePreference,
+            cooking_policy: cookingPolicy,
+          })}
           className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-200 hover:opacity-90 transition"
         >
           {t("save")}
