@@ -97,6 +97,26 @@ function buildSubDishSection(components: ActiveComp[]): string {
   return parts.length ? ",\n" + parts.join(",\n") : "";
 }
 
+type HouseholdProfile = {
+  has_children?: boolean;
+  children_age_note?: string;
+  taste_preference?: "light" | "normal" | "rich";
+  cooking_policy?: string;
+  ng_foods?: string;
+};
+
+function buildHouseholdSection(profile: HouseholdProfile): string {
+  const lines: string[] = [];
+  if (profile.has_children) {
+    lines.push(`- 子どもあり${profile.children_age_note ? `（${profile.children_age_note}）` : ""}。子ども向けに辛さ控えめ・食べやすい食材サイズで。`);
+  }
+  if (profile.taste_preference === "light") lines.push("- 味付け: 薄味を好む家庭。醤油・塩を少なめに。");
+  if (profile.taste_preference === "rich") lines.push("- 味付け: 濃いめを好む家庭。しっかり味をつけること。");
+  if (profile.cooking_policy) lines.push(`- 料理方針: ${profile.cooking_policy}`);
+  if (profile.ng_foods) lines.push(`- NG食材・アレルギー: ${profile.ng_foods}`);
+  return lines.length ? `\n【家庭プロファイル】\n${lines.join("\n")}\n` : "";
+}
+
 function buildPrompt(
   tired_mode: boolean,
   meal_time: string,
@@ -105,7 +125,8 @@ function buildPrompt(
   locale: string,
   has_hotcook: boolean,
   user_request: string,
-  ingredients: string[]
+  ingredients: string[],
+  household_profile: HouseholdProfile = {}
 ): string {
   const mainComp = meal_components.find((c) => c.role === "main");
   const sideComp = meal_components.find((c) => c.role === "side");
@@ -204,7 +225,7 @@ ${ingredientList}
 - 食事: ${meal_time}
 - 余力: ${tired_mode ? "疲れている。15分以内・材料少なめで作れる簡単な料理を優先" : "通常"}
 - 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
-${hotcookNote}
+${buildHouseholdSection(household_profile)}${hotcookNote}
 
 【常備調味料・基本食材（常に自宅にあるものとして扱う）】
 ${ALWAYS_AVAILABLE_SEASONINGS}
@@ -246,7 +267,7 @@ ${ingredientList}
 - 食事: ${meal_time}
 - 余力: ${tired_mode ? "疲れている。15分以内・材料少なめで作れる簡単な料理を優先" : "通常"}
 - 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
-${hotcookNote}
+${buildHouseholdSection(household_profile)}${hotcookNote}
 
 【常備調味料・基本食材（常に自宅にあるものとして扱う）】
 ${ALWAYS_AVAILABLE_SEASONINGS}
@@ -350,6 +371,7 @@ export async function POST(req: NextRequest) {
     locale = "ja",
     appliances = [],
     user_request = "",
+    household_profile = {},
   } = await req.json();
 
   // ingredients_override がある場合は画像不要（食材確認画面からの呼び出し）
@@ -417,7 +439,7 @@ export async function POST(req: NextRequest) {
         // Phase 2: 食材リストのみで献立生成（画像再送なし）
         const prompt = buildPrompt(
           tired_mode, meal_time, history, meal_components as ActiveComp[],
-          locale, has_hotcook, user_request, ingredients
+          locale, has_hotcook, user_request, ingredients, household_profile as HouseholdProfile
         );
         if (process.env.GEMINI_API_KEY) {
           try {

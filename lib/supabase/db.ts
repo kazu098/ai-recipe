@@ -295,3 +295,28 @@ export async function saveFeedback(params: {
     .eq("session_id", params.sessionId)
     .eq("meal_name", params.mealName);
 }
+
+/** household_settings を profiles に保存 */
+export async function saveHouseholdSettings(
+  userId: string,
+  settings: Record<string, unknown>
+): Promise<void> {
+  const supabase = createClient();
+  await supabase
+    .from("profiles")
+    .update({ household_settings: settings })
+    .eq("id", userId);
+}
+
+/** household_settings を profiles から読み込む */
+export async function loadHouseholdSettings(
+  userId: string
+): Promise<Record<string, unknown> | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("household_settings")
+    .eq("id", userId)
+    .single();
+  return (data?.household_settings as Record<string, unknown>) ?? null;
+}
