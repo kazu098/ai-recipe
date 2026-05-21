@@ -6,8 +6,11 @@ import { routing } from "./i18n/routing";
 const handleI18nRouting = createIntlMiddleware(routing);
 
 export async function middleware(request: NextRequest) {
+  // /admin は i18n ルーティング対象外
+  const isAdmin = request.nextUrl.pathname.startsWith("/admin");
+
   // next-intl: locale detection + redirect (e.g. / → /ja)
-  const intlResponse = handleI18nRouting(request);
+  const intlResponse = isAdmin ? null : handleI18nRouting(request);
 
   // Use intl response as base (may be a redirect or next())
   let response = intlResponse ?? NextResponse.next({ request });
