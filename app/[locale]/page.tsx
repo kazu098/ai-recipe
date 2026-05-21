@@ -823,6 +823,113 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
   );
 }
 
+// ─── Shopping list components ─────────────────────────────────────────────────
+
+function ShoppingListSimple({ items }: { items: string[] }) {
+  const [copied, setCopied] = useState(false);
+
+  const copyToClipboard = () => {
+    const text = `【買い物リスト】\n${items.map((i) => `・${i}`).join("\n")}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
+
+  return (
+    <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-semibold text-orange-600">
+          買い足す食材 ({items.length}品)
+        </p>
+        <button
+          onClick={copyToClipboard}
+          className="text-xs text-orange-500 border border-orange-200 bg-white px-2 py-1 rounded-lg hover:bg-orange-50 transition"
+        >
+          {copied ? "コピー済み ✓" : "コピー"}
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((item, i) => (
+          <span key={i} className="text-xs bg-white border border-orange-200 text-orange-700 px-2.5 py-1 rounded-full">
+            {item}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ShoppingListFull({
+  ingredients,
+  seasonings,
+  title,
+}: {
+  ingredients: { name: string; amount: string }[];
+  seasonings: { name: string; amount: string }[];
+  title: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  if (!ingredients.length && !seasonings.length) return null;
+
+  const copyToClipboard = () => {
+    const lines = [`【${title} 買い物リスト】`, ""];
+    if (ingredients.length) {
+      lines.push("■ 食材（必須）");
+      ingredients.forEach((i) => lines.push(`・${i.name}　${i.amount}`));
+    }
+    if (seasonings.length) {
+      lines.push("", "■ 調味料（確認）");
+      seasonings.forEach((s) => lines.push(`・${s.name}　${s.amount}`));
+    }
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
+
+  return (
+    <div className="bg-white rounded-2xl p-4 border border-gray-100">
+      <div className="flex items-center justify-between mb-3">
+        <p className="font-semibold text-gray-800">買い物リスト</p>
+        <button
+          onClick={copyToClipboard}
+          className="text-xs text-gray-500 border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-50 transition"
+        >
+          {copied ? "コピー済み ✓" : "コピー"}
+        </button>
+      </div>
+      {ingredients.length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs font-semibold text-gray-500 mb-1.5">食材（必須）</p>
+          <div className="space-y-1.5">
+            {ingredients.map((item, i) => (
+              <div key={i} className="flex justify-between text-sm">
+                <span className="text-gray-700">・{item.name}</span>
+                <span className="text-gray-400">{item.amount}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {seasonings.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 mb-1.5">調味料（確認）</p>
+          <div className="space-y-1.5">
+            {seasonings.map((item, i) => (
+              <div key={i} className="flex justify-between text-sm">
+                <span className="text-gray-400">・{item.name}</span>
+                <span className="text-gray-400">{item.amount}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── History view ─────────────────────────────────────────────────────────────
 
 type HistorySession = {
@@ -1823,6 +1930,12 @@ function RecipeView({
               <SubRecipeCard label={soupLabel} icon="🍵" sub={recipe.soup_recipe} />
             )}
 
+            <ShoppingListFull
+              ingredients={recipe.ingredients ?? []}
+              seasonings={recipe.seasonings ?? []}
+              title={recipe.title}
+            />
+
             <p className="text-xs text-gray-400 text-center pb-2">{t("safety")}</p>
           </div>
 
@@ -1948,12 +2061,7 @@ function ResultView({
         )}
 
         {meal.missing_ingredients?.length > 0 && (
-          <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
-            <p className="text-sm font-semibold text-orange-600 mb-2">
-              {t("missing", { count: meal.missing_ingredients.length })}
-            </p>
-            <p className="text-sm text-orange-700">{meal.missing_ingredients.join("・")}</p>
-          </div>
+          <ShoppingListSimple items={meal.missing_ingredients} />
         )}
       </div>
 
