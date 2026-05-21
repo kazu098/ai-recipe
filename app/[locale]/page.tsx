@@ -2049,8 +2049,6 @@ function RecipeView({
               </div>
             )}
 
-            {recipe.hotcook && <HotcookGuideCard guide={recipe.hotcook} />}
-
             <div className="bg-white rounded-2xl p-4 border border-gray-100">
               <p className="font-semibold text-gray-800 mb-4">{t("steps")}</p>
               <div className="space-y-4">

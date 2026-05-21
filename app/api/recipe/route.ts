@@ -191,20 +191,6 @@ export async function POST(req: NextRequest) {
     const fullText = result.response.text();
     const parsed = JSON.parse(extractJSON(fullText));
 
-    // HotCook 情報をサーバー側で後付け注入（AI に生成させず確実性を担保）
-    if (hotcookAdvice) {
-      parsed.hotcook = {
-        category: hotcookAdvice.category.name,
-        category_description: hotcookAdvice.category.description,
-        menu_selection: hotcookAdvice.menu_selection,
-        water_note: hotcookAdvice.water_note,
-        stir_note: hotcookAdvice.stir_note,
-        time_note: hotcookAdvice.time_note,
-        safety_notes: hotcookAdvice.safety_notes,
-        capacity_warning: hotcookAdvice.capacity_warning,
-      };
-    }
-
     return new Response(JSON.stringify(parsed), {
       headers: { "Content-Type": "application/json" },
     });
