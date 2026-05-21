@@ -597,6 +597,8 @@ export default function HomePage() {
         loading={recipeLoading}
         onBack={() => setView("result")}
         selectedPattern={selectedPattern}
+        sessionId={sessionId}
+        user={user}
       />
     );
   }
@@ -1838,11 +1840,15 @@ function RecipeView({
   loading,
   onBack,
   selectedPattern,
+  sessionId,
+  user,
 }: {
   recipe: RecipeData | null;
   loading: boolean;
   onBack: () => void;
   selectedPattern: MealPattern;
+  sessionId: string | null;
+  user: import("@supabase/supabase-js").User | null;
 }) {
   const t = useTranslations("recipe");
   const locale = useLocale() as "ja" | "en";
@@ -1850,6 +1856,34 @@ function RecipeView({
   const mainLabel = getComponentLabel(selectedPattern, "main", locale);
   const sideLabel = getComponentLabel(selectedPattern, "side", locale);
   const soupLabel = getComponentLabel(selectedPattern, "soup", locale);
+
+  const [wasCooked, setWasCooked] = useState<boolean | null>(null);
+  const [reaction, setReaction] = useState<"liked" | "disliked" | null>(null);
+  const [reactionMemo, setReactionMemo] = useState("");
+  const [nextTimeMemo, setNextTimeMemo] = useState("");
+  const [feedbackSaved, setFeedbackSaved] = useState(false);
+
+  const saveFeedbackData = (updates: {
+    wasCooked?: boolean | null;
+    reaction?: "liked" | "disliked" | null;
+    reactionMemo?: string;
+    nextTimeMemo?: string;
+  }) => {
+    if (!user || !sessionId || !recipe) return;
+    fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: sessionId,
+        meal_name: recipe.title,
+        was_cooked: updates.wasCooked ?? wasCooked ?? undefined,
+        family_reaction: updates.reaction !== undefined ? updates.reaction : reaction,
+        reaction_memo: updates.reactionMemo ?? reactionMemo,
+        next_time_memo: updates.nextTimeMemo ?? nextTimeMemo,
+      }),
+    }).catch(() => {});
+    setFeedbackSaved(true);
+  };
 
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
@@ -1939,10 +1973,75 @@ function RecipeView({
             <p className="text-xs text-gray-400 text-center pb-2">{t("safety")}</p>
           </div>
 
-          <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100">
-            <button className="w-full bg-accent text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-200 hover:opacity-90 transition">
-              {t("made_it")}
-            </button>
+          <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100 space-y-3">
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const next = wasCooked === true ? null : true;
+                  setWasCooked(next);
+                  saveFeedbackData({ wasCooked: next ?? undefined });
+                }}
+                className={`flex-1 py-3 rounded-2xl font-bold text-sm transition ${wasCooked === true ? "bg-accent text-white shadow-lg shadow-green-200" : "bg-gray-100 text-gray-600 hover:bg-green-50"}`}
+              >
+                作った
+              </button>
+              <button
+                onClick={() => {
+                  const next = wasCooked === false ? null : false;
+                  setWasCooked(next);
+                  saveFeedbackData({ wasCooked: next ?? undefined });
+                }}
+                className={`flex-1 py-3 rounded-2xl font-bold text-sm transition ${wasCooked === false ? "bg-gray-400 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+              >
+                作らなかった
+              </button>
+            </div>
+
+            {wasCooked === true && (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const next = reaction === "liked" ? null : "liked";
+                      setReaction(next);
+                      saveFeedbackData({ reaction: next });
+                    }}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition ${reaction === "liked" ? "bg-yellow-400 text-white" : "bg-gray-100 text-gray-600 hover:bg-yellow-50"}`}
+                  >
+                    家族がよく食べた
+                  </button>
+                  <button
+                    onClick={() => {
+                      const next = reaction === "disliked" ? null : "disliked";
+                      setReaction(next);
+                      saveFeedbackData({ reaction: next });
+                    }}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition ${reaction === "disliked" ? "bg-blue-400 text-white" : "bg-gray-100 text-gray-600 hover:bg-blue-50"}`}
+                  >
+                    あまり食べなかった
+                  </button>
+                </div>
+                <textarea
+                  value={reactionMemo}
+                  onChange={(e) => setReactionMemo(e.target.value)}
+                  onBlur={() => saveFeedbackData({ reactionMemo })}
+                  placeholder="家族の反応メモ（任意）"
+                  rows={2}
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <textarea
+                  value={nextTimeMemo}
+                  onChange={(e) => setNextTimeMemo(e.target.value)}
+                  onBlur={() => saveFeedbackData({ nextTimeMemo })}
+                  placeholder="次回へのメモ（例：塩を少し減らす）"
+                  rows={2}
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                {feedbackSaved && (
+                  <p className="text-xs text-gray-400 text-center">保存しました</p>
+                )}
+              </div>
+            )}
           </div>
         </>
       ) : null}

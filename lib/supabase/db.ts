@@ -269,3 +269,29 @@ export async function removeFavorite(params: {
     .eq("user_id", params.userId)
     .eq("meal_name", params.mealName);
 }
+
+/** meal_history にフィードバックを保存 */
+export async function saveFeedback(params: {
+  userId: string;
+  sessionId: string;
+  mealName: string;
+  wasCooked?: boolean;
+  familyReaction?: "liked" | "disliked" | null;
+  reactionMemo?: string;
+  nextTimeMemo?: string;
+}): Promise<void> {
+  const supabase = createClient();
+  const update: Record<string, unknown> = {};
+  if (params.wasCooked !== undefined) update.was_cooked = params.wasCooked;
+  if (params.familyReaction !== undefined) update.family_reaction = params.familyReaction;
+  if (params.reactionMemo !== undefined) update.reaction_memo = params.reactionMemo;
+  if (params.nextTimeMemo !== undefined) update.next_time_memo = params.nextTimeMemo;
+  if (!Object.keys(update).length) return;
+
+  await supabase
+    .from("meal_history")
+    .update(update)
+    .eq("user_id", params.userId)
+    .eq("session_id", params.sessionId)
+    .eq("meal_name", params.mealName);
+}
