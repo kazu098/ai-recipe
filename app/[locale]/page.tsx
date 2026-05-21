@@ -259,7 +259,7 @@ export default function HomePage() {
             }
           })
           .catch(() => {});
-        // DBから家庭設定を読み込み（DBが優先、なければ localStorage を DB に書き込む）
+        // DBから家庭設定を読み込み（DBが優先、なければ localStorage を DB に保存）
         fetch("/api/settings")
           .then((r) => r.json())
           .then((d) => {
@@ -272,6 +272,49 @@ export default function HomePage() {
               localStorage.setItem("snapmeal_settings", JSON.stringify(s));
             } else {
               // DB未登録 → localStorage の設定を DB に保存
+              const stored = localStorage.getItem("snapmeal_settings");
+              if (stored) {
+                fetch("/api/settings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ settings: JSON.parse(stored) }),
+                }).catch(() => {});
+              }
+            }
+          })
+          .catch(() => {});
+      } else if (event === "INITIAL_SESSION" && session) {
+        // Google OAuth のリダイレクト後はこのイベントが発火する（SIGNED_IN は発火しない）。
+        // プロフィール作成・DB同期を行い、ログイン状態を確実に反映させる。
+        setUser(session.user);
+        setLoginPrompt({ show: false, reason: "favorite" });
+        supabase.from("profiles").upsert(
+          { id: session.user.id, email: session.user.email ?? "" },
+          { onConflict: "id", ignoreDuplicates: true }
+        );
+        fetch("/api/favorites")
+          .then((r) => r.json())
+          .then((d) => {
+            if (Array.isArray(d.favorites)) {
+              setFavorites((prev) => {
+                const merged = Array.from(new Set([...prev, ...d.favorites as string[]]));
+                localStorage.setItem("snapmeal_favorites", JSON.stringify(merged));
+                return merged;
+              });
+            }
+          })
+          .catch(() => {});
+        fetch("/api/settings")
+          .then((r) => r.json())
+          .then((d) => {
+            if (d.settings && Object.keys(d.settings).length > 0) {
+              const s = d.settings as UserSettings;
+              setSettings(s);
+              setSelectedAppliance(
+                s.appliances?.includes("hotcook") ? "hotcook" : (s.appliances?.[0] ?? "pan")
+              );
+              localStorage.setItem("snapmeal_settings", JSON.stringify(s));
+            } else {
               const stored = localStorage.getItem("snapmeal_settings");
               if (stored) {
                 fetch("/api/settings", {
