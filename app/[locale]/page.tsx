@@ -1903,11 +1903,11 @@ function renderStepText(text: string): React.ReactNode {
       <span key={`nav-${match.index}`} className="inline-flex items-center flex-wrap gap-1 align-middle">
         {buttons.map((btn, i) => (
           <span key={i} className="inline-flex items-center gap-1">
-            <span className="bg-green-600 text-white text-xs px-2 py-0.5 rounded font-medium leading-5 whitespace-nowrap">
+            <span className="bg-green-50 text-green-800 border border-green-200 text-xs px-2 py-0.5 rounded font-medium leading-5 whitespace-nowrap">
               {btn}
             </span>
             {i < buttons.length - 1 && (
-              <span className="text-green-700 text-xs font-bold">→</span>
+              <span className="text-green-600 text-xs font-bold">→</span>
             )}
           </span>
         ))}
