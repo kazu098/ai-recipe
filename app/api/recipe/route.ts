@@ -36,7 +36,8 @@ function buildPrompt(
   side: SubDish | null,
   soup: SubDish | null,
   locale: string,
-  hotcookAdvice: HotcookAdvice | null
+  hotcookAdvice: HotcookAdvice | null,
+  soupHotcookAdvice: HotcookAdvice | null
 ): string {
   const hasHotcook = appliances.includes("hotcook");
   const ngLine = ngFoods ? `使用禁止食材（アレルギー等）: ${ngFoods}` : "";
@@ -64,6 +65,7 @@ function buildPrompt(
   ].filter(Boolean).join("\n");
 
   const hotcookGuidance = hasHotcook && hotcookAdvice ? buildHotcookGuidance(hotcookAdvice) : "";
+  const soupHotcookGuidance = hasHotcook && soupHotcookAdvice ? buildHotcookGuidance(soupHotcookAdvice) : "";
 
   const hotcookStepInstruction = hasHotcook && hotcookAdvice
     ? `
@@ -78,6 +80,26 @@ function buildPrompt(
 ❌ 禁止: 「フライパンで炒める」「鍋で煮る」「オーブンで焼く」など、ホットクック以外の器具を使う手順
 ❌ 禁止: 焦げ目をつける、揚げる、シャキッと炒めるなどの不可能な調理
 ✅ 必須: 上記ガイドの「水分」「まぜ技」「時間」を手順に反映すること
+`
+    : "";
+
+  const soupHotcookStepInstruction = hasHotcook && soup && soupHotcookAdvice
+    ? `
+【${soupLabel}の手順について（重要）】
+この${soupLabel}もホットクックで調理します。soup_recipe の steps は必ず以下の流れで書いてください:
+1. 食材の下処理（カット・アク抜きなど。必要なものだけ）
+2. 内鍋に食材・だし・調味料をセット
+3. ホットクックの設定（カテゴリ「${soupHotcookAdvice.category.name}」を選択 → 自動メニュー or 手動モード）
+4. スタートボタンを押す
+5. 仕上げ（味噌汁は完成後に味噌を溶く。塩で味を調えるなど）
+
+❌ 禁止: 「鍋で煮る」「コンロで加熱する」などホットクック以外の器具を使う手順
+✅ 必須: ガイドの「水分」「まぜ技」「時間」を手順に反映すること
+`
+    : hasHotcook && soup
+    ? `
+【${soupLabel}の手順について（重要）】
+この${soupLabel}もホットクックで調理します。soup_recipe の steps は必ずホットクックを使った手順（内鍋に食材をセット → 設定 → スタート）で書いてください。
 `
     : "";
 
@@ -96,6 +118,8 @@ function buildPrompt(
 ${ngLine}
 ${hotcookGuidance ? `\n${hotcookGuidance}\n` : ""}
 ${hotcookStepInstruction}
+${soupHotcookGuidance ? `\n【${soupLabel}用ホットクックガイド】\n${soupHotcookGuidance}\n` : ""}
+${soupHotcookStepInstruction}
 ${subDishRequest}
 
 出力はJSONのみ（コードブロック・説明文不要）:
@@ -162,12 +186,28 @@ export async function POST(req: NextRequest) {
         })
       : null;
 
+    const soupHotcookAdvice = hasHotcook && soup
+      ? getHotcookAdvice({
+          meal_name: (soup as SubDish).name,
+          ingredients: (soup as SubDish).matched_ingredients,
+          cooking_method: "スープ",
+        })
+      : null;
+
     if (hotcookAdvice) {
       console.log(
         "[recipe] hotcook category:",
         hotcookAdvice.category.id,
         "/ menu_path:",
         hotcookAdvice.menu_selection.primary_path
+      );
+    }
+    if (soupHotcookAdvice) {
+      console.log(
+        "[recipe] soup hotcook category:",
+        soupHotcookAdvice.category.id,
+        "/ menu_path:",
+        soupHotcookAdvice.menu_selection.primary_path
       );
     }
 
@@ -184,7 +224,8 @@ export async function POST(req: NextRequest) {
       side,
       soup,
       locale,
-      hotcookAdvice
+      hotcookAdvice,
+      soupHotcookAdvice
     );
 
     const result = await model.generateContent(prompt);
