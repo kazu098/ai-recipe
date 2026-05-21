@@ -1885,6 +1885,44 @@ function HotcookGuideCard({ guide }: { guide: HotcookGuide }) {
   );
 }
 
+// 「A」→「B」→「C」のようなホットクック操作ナビを緑ボタンチップに変換
+function renderStepText(text: string): React.ReactNode {
+  const navPattern = /「[^」]+」(?:→「[^」]+」)+/g;
+  const result: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let hasMatch = false;
+
+  while ((match = navPattern.exec(text)) !== null) {
+    hasMatch = true;
+    if (match.index > lastIndex) {
+      result.push(<span key={`t-${lastIndex}`}>{text.slice(lastIndex, match.index)}</span>);
+    }
+    const buttons = match[0].match(/「[^」]+」/g)?.map((s) => s.slice(1, -1)) ?? [];
+    result.push(
+      <span key={`nav-${match.index}`} className="inline-flex items-center flex-wrap gap-1 align-middle">
+        {buttons.map((btn, i) => (
+          <span key={i} className="inline-flex items-center gap-1">
+            <span className="bg-green-50 text-green-800 border border-green-200 text-xs px-2 py-0.5 rounded font-medium leading-5 whitespace-nowrap">
+              {btn}
+            </span>
+            {i < buttons.length - 1 && (
+              <span className="text-green-600 text-xs font-bold">→</span>
+            )}
+          </span>
+        ))}
+      </span>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (!hasMatch) return text;
+  if (lastIndex < text.length) {
+    result.push(<span key="t-end">{text.slice(lastIndex)}</span>);
+  }
+  return <>{result}</>;
+}
+
 function SubRecipeCard({
   label,
   icon,
@@ -1937,7 +1975,7 @@ function SubRecipeCard({
                   <span className="w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">
                     {i + 1}
                   </span>
-                  <p className="text-sm text-gray-700 leading-relaxed">{step}</p>
+                  <p className="text-sm text-gray-700 leading-relaxed">{renderStepText(step)}</p>
                 </div>
               ))}
             </div>
@@ -2049,8 +2087,6 @@ function RecipeView({
               </div>
             )}
 
-            {recipe.hotcook && <HotcookGuideCard guide={recipe.hotcook} />}
-
             <div className="bg-white rounded-2xl p-4 border border-gray-100">
               <p className="font-semibold text-gray-800 mb-4">{t("steps")}</p>
               <div className="space-y-4">
@@ -2059,7 +2095,7 @@ function RecipeView({
                     <span className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">
                       {i + 1}
                     </span>
-                    <p className="text-sm text-gray-700 leading-relaxed">{step}</p>
+                    <p className="text-sm text-gray-700 leading-relaxed">{renderStepText(step)}</p>
                   </div>
                 ))}
               </div>

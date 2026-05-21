@@ -89,10 +89,10 @@ function buildSubDishSection(components: ActiveComp[]): string {
   const side = components.find((c) => c.role === "side");
   const soup = components.find((c) => c.role === "soup");
   if (side) {
-    parts.push(`    "side": { "name": "${side.label}名", "matched_ingredients": ["使う食材1", ...] }`);
+    parts.push(`    "side": { "name": "${side.label}名（小鉢・副菜。汁物・スープは不可）", "matched_ingredients": ["使う食材1", ...] }`);
   }
   if (soup) {
-    parts.push(`    "soup": { "name": "${soup.label}名", "matched_ingredients": ["使う食材1", ...] }`);
+    parts.push(`    "soup": { "name": "${soup.label}名（必ず味噌汁・スープ・汁物など液体を含む料理。サラダ・炒め物・副菜は絶対不可）", "matched_ingredients": ["使う食材1", ...] }`);
   }
   return parts.length ? ",\n" + parts.join(",\n") : "";
 }
@@ -134,8 +134,8 @@ function buildPrompt(
   const mainLabel = mainComp?.label ?? "メイン";
 
   const componentNote = [
-    sideComp ? `${sideComp.label}（小鉢1品）` : "",
-    soupComp ? `${soupComp.label}（スープ・汁物等）` : "",
+    sideComp ? `${sideComp.label}（小鉢1品・汁物以外）` : "",
+    soupComp ? `${soupComp.label}（味噌汁・スープ・汁物など液体の料理のみ）` : "",
   ].filter(Boolean).join("と");
 
   const hotcookNote = has_hotcook
@@ -233,6 +233,7 @@ ${buildHistorySection(history)}
 【出力ルール】
 ${missingIngredientsRule}
 ${sideComp || soupComp ? `- メインとサブ料理は食材が重複しすぎないよう、バランスよく選ぶこと` : ""}
+${soupComp ? `- soupには必ず味噌汁・スープ・汁物など液体を含む料理を設定すること。サラダ・炒め物・副菜は絶対不可` : ""}
 
 ==========================================
 🔴 再度の念押し:
@@ -277,6 +278,7 @@ ${buildHistorySection(history)}
 【必須ルール】
 ${missingIngredientsRule}
 ${sideComp || soupComp ? `- メインとサブ料理は食材が重複しすぎないよう、バランスよく選ぶこと` : ""}
+${soupComp ? `- soupには必ず味噌汁・スープ・汁物など液体を含む料理を設定すること。サラダ・炒め物・副菜は絶対不可` : ""}
 
 出力はJSONのみ（コードブロック・説明文不要）:
 {

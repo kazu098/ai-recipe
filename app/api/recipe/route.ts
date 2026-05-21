@@ -25,6 +25,33 @@ function buildHotcookGuidance(advice: HotcookAdvice): string {
   return lines.join("\n");
 }
 
+function buildSubDishHotcookInstruction(
+  label: string,
+  field: "side_recipe" | "soup_recipe",
+  advice: HotcookAdvice | null,
+  hasDish: boolean
+): string {
+  if (!hasDish) return "";
+  if (advice) {
+    return `
+【${label}の手順について（重要）】
+この${label}もホットクックで調理します。${field} の steps は必ず以下の流れで書いてください:
+1. 食材の下処理（カット・アク抜きなど。必要なものだけ）
+2. 内鍋に食材と調味料をセット
+3. ホットクックの設定（カテゴリ「${advice.category.name}」を選択 → 自動メニュー or 手動モード）
+4. スタートボタンを押す
+5. 仕上げ（味噌汁なら完成後に味噌を溶く。味を調えるなど）
+
+❌ 禁止: 「鍋で煮る」「コンロで加熱する」「フライパンで炒める」などホットクック以外の器具を使う手順
+✅ 必須: 水分量・まぜ技ユニットの有無・時間を手順に反映すること
+`;
+  }
+  return `
+【${label}の手順について（重要）】
+この${label}もホットクックで調理します。${field} の steps は必ずホットクックを使った手順（内鍋に食材をセット → 設定 → スタート）で書いてください。
+`;
+}
+
 function buildPrompt(
   mealName: string,
   matchedIngredients: string[],
@@ -36,7 +63,9 @@ function buildPrompt(
   side: SubDish | null,
   soup: SubDish | null,
   locale: string,
-  hotcookAdvice: HotcookAdvice | null
+  hotcookAdvice: HotcookAdvice | null,
+  sideHotcookAdvice: HotcookAdvice | null,
+  soupHotcookAdvice: HotcookAdvice | null
 ): string {
   const hasHotcook = appliances.includes("hotcook");
   const ngLine = ngFoods ? `使用禁止食材（アレルギー等）: ${ngFoods}` : "";
@@ -58,12 +87,20 @@ function buildPrompt(
   }` : null,
   ].filter(Boolean).join(",\n");
 
+  const applianceNote = hasHotcook
+    ? "（ホットクックで調理すること）"
+    : appliances.length > 0 && !appliances.includes("pan")
+      ? `（${appliances.filter((a) => a !== "pan").join("、")}を使用）`
+      : "";
+
   const subDishRequest = [
-    side ? `【${sideLabel}】${side.name}（使用食材: ${side.matched_ingredients.join("、") || "適量"}）の簡単なレシピも生成してください。` : "",
-    soup ? `【${soupLabel}】${soup.name}（使用食材: ${soup.matched_ingredients.join("、") || "適量"}）の簡単なレシピも生成してください。` : "",
+    side ? `【${sideLabel}】${side.name}${applianceNote}（使用食材: ${side.matched_ingredients.join("、") || "適量"}）の簡単なレシピも生成してください。` : "",
+    soup ? `【${soupLabel}】${soup.name}${applianceNote}（使用食材: ${soup.matched_ingredients.join("、") || "適量"}）の簡単なレシピも生成してください。` : "",
   ].filter(Boolean).join("\n");
 
   const hotcookGuidance = hasHotcook && hotcookAdvice ? buildHotcookGuidance(hotcookAdvice) : "";
+  const sideHotcookGuidance = hasHotcook && sideHotcookAdvice ? buildHotcookGuidance(sideHotcookAdvice) : "";
+  const soupHotcookGuidance = hasHotcook && soupHotcookAdvice ? buildHotcookGuidance(soupHotcookAdvice) : "";
 
   const hotcookStepInstruction = hasHotcook && hotcookAdvice
     ? `
@@ -81,6 +118,9 @@ function buildPrompt(
 `
     : "";
 
+  const sideHotcookStepInstruction = buildSubDishHotcookInstruction(sideLabel, "side_recipe", sideHotcookAdvice, hasHotcook && !!side);
+  const soupHotcookStepInstruction = buildSubDishHotcookInstruction(soupLabel, "soup_recipe", soupHotcookAdvice, hasHotcook && !!soup);
+
   const langInstruction = locale === "en"
     ? "IMPORTANT: Write all text values in English (ingredient names, amounts, steps, tips, etc.).\n\n"
     : "";
@@ -96,6 +136,10 @@ function buildPrompt(
 ${ngLine}
 ${hotcookGuidance ? `\n${hotcookGuidance}\n` : ""}
 ${hotcookStepInstruction}
+${sideHotcookGuidance ? `\n【${sideLabel}用ホットクックガイド】\n${sideHotcookGuidance}\n` : ""}
+${sideHotcookStepInstruction}
+${soupHotcookGuidance ? `\n【${soupLabel}用ホットクックガイド】\n${soupHotcookGuidance}\n` : ""}
+${soupHotcookStepInstruction}
 ${subDishRequest}
 
 出力はJSONのみ（コードブロック・説明文不要）:
@@ -162,13 +206,30 @@ export async function POST(req: NextRequest) {
         })
       : null;
 
+    const sideHotcookAdvice = hasHotcook && side
+      ? getHotcookAdvice({
+          meal_name: (side as SubDish).name,
+          ingredients: (side as SubDish).matched_ingredients,
+          cooking_method: "煮込み",
+        })
+      : null;
+
+    const soupHotcookAdvice = hasHotcook && soup
+      ? getHotcookAdvice({
+          meal_name: (soup as SubDish).name,
+          ingredients: (soup as SubDish).matched_ingredients,
+          cooking_method: "スープ",
+        })
+      : null;
+
     if (hotcookAdvice) {
-      console.log(
-        "[recipe] hotcook category:",
-        hotcookAdvice.category.id,
-        "/ menu_path:",
-        hotcookAdvice.menu_selection.primary_path
-      );
+      console.log("[recipe] hotcook category:", hotcookAdvice.category.id, "/ menu_path:", hotcookAdvice.menu_selection.primary_path);
+    }
+    if (sideHotcookAdvice) {
+      console.log("[recipe] side hotcook category:", sideHotcookAdvice.category.id, "/ menu_path:", sideHotcookAdvice.menu_selection.primary_path);
+    }
+    if (soupHotcookAdvice) {
+      console.log("[recipe] soup hotcook category:", soupHotcookAdvice.category.id, "/ menu_path:", soupHotcookAdvice.menu_selection.primary_path);
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -184,26 +245,14 @@ export async function POST(req: NextRequest) {
       side,
       soup,
       locale,
-      hotcookAdvice
+      hotcookAdvice,
+      sideHotcookAdvice,
+      soupHotcookAdvice
     );
 
     const result = await model.generateContent(prompt);
     const fullText = result.response.text();
     const parsed = JSON.parse(extractJSON(fullText));
-
-    // HotCook 情報をサーバー側で後付け注入（AI に生成させず確実性を担保）
-    if (hotcookAdvice) {
-      parsed.hotcook = {
-        category: hotcookAdvice.category.name,
-        category_description: hotcookAdvice.category.description,
-        menu_selection: hotcookAdvice.menu_selection,
-        water_note: hotcookAdvice.water_note,
-        stir_note: hotcookAdvice.stir_note,
-        time_note: hotcookAdvice.time_note,
-        safety_notes: hotcookAdvice.safety_notes,
-        capacity_warning: hotcookAdvice.capacity_warning,
-      };
-    }
 
     return new Response(JSON.stringify(parsed), {
       headers: { "Content-Type": "application/json" },
