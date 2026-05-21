@@ -52,12 +52,15 @@ export async function GET(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
-      await admin
+      const { error: profileError } = await admin
         .from("profiles")
         .upsert(
           { id: data.user.id, email: data.user.email ?? "" },
           { onConflict: "id", ignoreDuplicates: true }
         );
+      if (profileError) {
+        console.error("[auth/callback] profiles upsert error:", profileError.message);
+      }
     }
   }
 
