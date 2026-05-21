@@ -729,6 +729,7 @@ export default function HomePage() {
         recipe={recipe}
         loading={recipeLoading}
         onBack={() => setView("result")}
+        onHome={() => setView("upload")}
         selectedPattern={selectedPattern}
         sessionId={sessionId}
         user={user}
@@ -2143,6 +2144,7 @@ function RecipeView({
   recipe,
   loading,
   onBack,
+  onHome,
   selectedPattern,
   sessionId,
   user,
@@ -2150,6 +2152,7 @@ function RecipeView({
   recipe: RecipeData | null;
   loading: boolean;
   onBack: () => void;
+  onHome: () => void;
   selectedPattern: MealPattern;
   sessionId: string | null;
   user: import("@supabase/supabase-js").User | null;
@@ -2364,6 +2367,14 @@ function RecipeView({
                 )}
               </div>
             )}
+
+            <button
+              onClick={onHome}
+              className="w-full py-3 rounded-2xl text-sm font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center gap-2"
+            >
+              <Camera size={16} />
+              もう一度撮る
+            </button>
           </div>
         </>
       ) : null}
