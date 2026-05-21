@@ -14,6 +14,7 @@ import {
   type ComponentRole,
 } from "@/lib/meal-patterns";
 import { Settings, ArrowLeft, Camera, Heart, Zap, ChefHat, History, ChevronRight } from "lucide-react";
+import { trackEvent, EVENTS } from "@/lib/analytics";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -239,6 +240,7 @@ export default function HomePage() {
         localStorage.removeItem("snapmeal_guest_count");
         setLoginPrompt({ show: false, reason: "favorite" });
         setView((v) => v === "login" ? "upload" : v);
+        trackEvent(EVENTS.LOGIN_COMPLETED);
         // profiles 行がなければ自動作成
         supabase.from("profiles").upsert(
           { id: session.user.id, email: session.user.email ?? "" },
@@ -289,6 +291,19 @@ export default function HomePage() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ── Analytics side-effects ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (loginPrompt.show) {
+      trackEvent(EVENTS.LOGIN_PROMPTED, { reason: loginPrompt.reason });
+    }
+  }, [loginPrompt.show]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (showUpgradeModal) {
+      trackEvent(EVENTS.UPGRADE_MODAL_SHOWN);
+    }
+  }, [showUpgradeModal]);
+
   // ── Image handling ──────────────────────────────────────────────────────────
 
   const addFiles = useCallback(async (files: FileList | File[]) => {
@@ -306,6 +321,9 @@ export default function HomePage() {
     );
 
     setImages((prev) => [...prev, ...results].slice(0, MAX_IMAGES));
+    if (results.length > 0) {
+      trackEvent(EVENTS.PHOTO_UPLOADED, { count: results.length });
+    }
   }, [images.length]);
 
   const removeImage = (idx: number) =>
@@ -334,6 +352,16 @@ export default function HomePage() {
     setRecipeLoading(true);
     setRecipe(null);
     setView("recipe");
+    trackEvent(EVENTS.MEAL_SELECTED, {
+      meal_name: meal.name,
+      genre: meal.genre,
+      difficulty: meal.difficulty,
+      time_minutes: meal.time_minutes,
+      cooking_method: meal.cooking_method,
+      meal_index: activeMealIdx,
+      appliance: selectedAppliance,
+      pattern: selectedPattern.id,
+    });
 
     if (sessionId) {
       fetch(`/api/sessions/${sessionId}/select`, {
@@ -435,10 +463,16 @@ export default function HomePage() {
       const count = getGuestCount();
       if (count >= GUEST_LIMIT) {
         setLoginPrompt({ show: true, reason: "limit" });
+        trackEvent(EVENTS.GUEST_LIMIT_HIT);
         return;
       }
     }
 
+    trackEvent(EVENTS.ANALYSIS_STARTED, {
+      tired_mode: tiredMode,
+      pattern: selectedPattern.id,
+      image_count: images.length,
+    });
     setView("recognizing");
     setStreamingIngredients([]);
     setMeals([]);
@@ -529,6 +563,13 @@ export default function HomePage() {
           setAllIngredients(d.ingredients);
           setActiveMealIdx(0);
           setView("result");
+          trackEvent(EVENTS.MEAL_SUGGESTED, {
+            meal_name: meal.name,
+            genre: meal.genre,
+            difficulty: meal.difficulty,
+            tired_mode: tiredMode,
+            pattern: selectedPattern.id,
+          });
         } else if (type === "session") {
           const d = data as { session_id: string };
           capturedSessionId = d.session_id;
@@ -615,7 +656,12 @@ export default function HomePage() {
         <ResultView
           meals={meals}
           activeMealIdx={activeMealIdx}
-          onChangeIdx={setActiveMealIdx}
+          onChangeIdx={(idx) => {
+            if (idx > activeMealIdx) {
+              trackEvent(EVENTS.ALTERNATIVE_VIEWED, { meal_index: idx, pattern: selectedPattern.id });
+            }
+            setActiveMealIdx(idx);
+          }}
           onBack={() => setView("upload")}
           onSelectMeal={fetchRecipe}
           favorites={favorites}
@@ -2131,6 +2177,7 @@ function RecipeView({
                   const next = wasCooked === true ? null : true;
                   setWasCooked(next);
                   saveFeedbackData({ wasCooked: next ?? undefined });
+                  if (next === true) trackEvent(EVENTS.RECIPE_COOKED, { meal_name: recipe.title });
                 }}
                 className={`flex-1 py-3 rounded-2xl font-bold text-sm transition ${wasCooked === true ? "bg-accent text-white shadow-lg shadow-green-200" : "bg-gray-100 text-gray-600 hover:bg-green-50"}`}
               >
