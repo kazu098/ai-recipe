@@ -127,7 +127,7 @@ function buildPrompt(
     : "";
 
   const substitutionsInstruction = hasHotcook
-    ? `"substitutions": ["調味料名がない場合の代用方法を1行で（例: みりんがない：砂糖を小さじ1足して、酒を大さじ1増やす）", ...]（代用しにくいもの・省略できないものは省く。なければ空配列[]）`
+    ? `"substitutions": ["seasoningsに含まれる調味料のみ対象。その調味料がない場合の代用方法を1行で（例: みりんがない場合：砂糖小さじ1＋酒大さじ1で代用）", ...]（食材の代用は含めない。代用しにくい・省略不可の調味料は省く。なければ空配列[]）`
     : `"substitutions": []`;
 
   return `${langInstruction}あなたは家庭料理の専門家です。以下の献立の詳細レシピを${servings}人分で作成してください。
