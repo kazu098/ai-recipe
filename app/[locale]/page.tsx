@@ -87,6 +87,7 @@ type RecipeData = {
   ingredients: RecipeIngredient[];
   seasonings: RecipeIngredient[];
   steps: string[];
+  substitutions?: string[];
   hotcook?: HotcookGuide;
   tips?: string;
   side_recipe?: SubRecipe;
@@ -1887,6 +1888,67 @@ function AnalyzingView({
   );
 }
 
+// ─── Hotcook menu section ─────────────────────────────────────────────────────
+
+function HotcookMenuSection({ guide }: { guide: HotcookGuide }) {
+  const m = guide.menu_selection;
+  // primary_path の末尾に「料理を選ぶ → スタート」を追加
+  const pathSteps = [...m.primary_path.split(/\s*→\s*/), "料理を選ぶ", "スタート"];
+  const fb = m.manual_fallback;
+  const examples = m.auto_menu_examples.slice(0, 4);
+
+  return (
+    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-200 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-base">🥘</span>
+        <p className="font-semibold text-green-900 text-sm">メニュー選択</p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1">
+        {pathSteps.map((step, i) => (
+          <span key={i} className="flex items-center gap-1">
+            <span className={`border text-xs px-2.5 py-1 rounded-lg font-medium whitespace-nowrap shadow-sm ${
+              step === "スタート"
+                ? "bg-green-500 border-green-400 text-white"
+                : step === "料理を選ぶ"
+                  ? "bg-green-100 border-green-300 text-green-800"
+                  : "bg-white border-green-200 text-green-800"
+            }`}>
+              {step}
+            </span>
+            {i < pathSteps.length - 1 && (
+              <span className="text-green-400 text-xs font-bold">→</span>
+            )}
+          </span>
+        ))}
+      </div>
+
+      {examples.length > 0 && (
+        <p className="text-xs text-green-700">
+          例：{examples.map((ex, i) => (
+            <span key={i}>
+              {i > 0 && "・"}
+              <span className="font-medium">{ex}</span>
+            </span>
+          ))} など
+        </p>
+      )}
+
+      <div className="bg-white/70 rounded-xl px-3 py-2.5 border border-green-100">
+        <p className="text-xs text-green-700 leading-relaxed">
+          <span className="font-semibold">※機種によって表示が違う場合は、</span>
+          <br />
+          <span className="font-medium">{fb.mode}</span>
+          {" → "}
+          <span className="font-medium">約{fb.time_min_min === fb.time_max_min ? `${fb.time_min_min}分` : `${fb.time_min_min}〜${fb.time_max_min}分`}</span>
+          <br />
+          でも作れます。
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Sub recipe card ──────────────────────────────────────────────────────────
 
 function HotcookGuideCard({ guide }: { guide: HotcookGuide }) {
@@ -2190,9 +2252,28 @@ function RecipeView({
               </div>
             </div>
 
+            {recipe.hotcook && (
+              <HotcookMenuSection guide={recipe.hotcook} />
+            )}
+
+            {recipe.substitutions && recipe.substitutions.length > 0 && (
+              <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100">
+                <p className="font-semibold text-gray-800 mb-3">🔄 代用メモ</p>
+                <div className="space-y-2">
+                  {recipe.substitutions.map((note, i) => (
+                    <div key={i} className="flex gap-2 text-sm text-gray-700">
+                      <span className="flex-shrink-0 text-amber-500">•</span>
+                      <span className="leading-relaxed">{note}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {recipe.tips && (
               <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
-                <p className="text-sm text-gray-700">💡 {recipe.tips}</p>
+                <p className="font-semibold text-gray-800 mb-2">💡 仕上げのコツ</p>
+                <p className="text-sm text-gray-700 leading-relaxed">{recipe.tips}</p>
               </div>
             )}
 

@@ -108,13 +108,14 @@ function buildPrompt(
 このレシピはホットクックで調理します。手順は必ず以下の流れで書いてください:
 1. 食材の下処理（カット・霜降り・油抜きなど。必要なものだけ）
 2. 内鍋に食材と調味料をセット（投入順序があれば明記）
-3. ホットクックの設定（カテゴリ「${hotcookAdvice.category.name}」を選択 → 自動メニュー or 手動モード）
-4. スタートボタンを押す
-5. 完成後の仕上げ（牛乳・生クリーム・とろみ等を追加する場合）
+3. まぜ技ユニットが必要な場合はセットする
+4. ホットクックで加熱する（「ホットクックで加熱する。」の一文でOK。メニュー操作手順は不要）
+5. 完成後の仕上げ（牛乳・生クリーム・とろみ等を追加する場合のみ）
 
 ❌ 禁止: 「フライパンで炒める」「鍋で煮る」「オーブンで焼く」など、ホットクック以外の器具を使う手順
 ❌ 禁止: 焦げ目をつける、揚げる、シャキッと炒めるなどの不可能な調理
-✅ 必須: 上記ガイドの「水分」「まぜ技」「時間」を手順に反映すること
+❌ 禁止: stepsに「メニューを選ぶ→...」などの操作ナビを含める（それはUI側で別途表示します）
+✅ 必須: 上記ガイドの「水分」「まぜ技」「時間」の要否を手順に反映すること
 `
     : "";
 
@@ -124,6 +125,10 @@ function buildPrompt(
   const langInstruction = locale === "en"
     ? "IMPORTANT: Write all text values in English (ingredient names, amounts, steps, tips, etc.).\n\n"
     : "";
+
+  const substitutionsInstruction = hasHotcook
+    ? `"substitutions": ["調味料名がない場合の代用方法を1行で（例: みりんがない：砂糖を小さじ1足して、酒を大さじ1増やす）", ...]（代用しにくいもの・省略できないものは省く。なければ空配列[]）`
+    : `"substitutions": []`;
 
   return `${langInstruction}あなたは家庭料理の専門家です。以下の献立の詳細レシピを${servings}人分で作成してください。
 
@@ -156,7 +161,8 @@ ${subDishRequest}
     "手順1（具体的に）",
     "手順2"
   ],
-  "tips": "コツやポイント（1〜2文、なければ空文字）"${subDishSchema ? `,\n${subDishSchema}` : ""}
+  ${substitutionsInstruction},
+  "tips": "仕上げのコツ・ポイント（1〜2文、なければ空文字）"${subDishSchema ? `,\n${subDishSchema}` : ""}
 }
 
 ingredientsには調味料以外の食材のみ記載し、seasoningsに調味料・たれ・油類を記載してください。
@@ -253,6 +259,31 @@ export async function POST(req: NextRequest) {
     const result = await model.generateContent(prompt);
     const fullText = result.response.text();
     const parsed = JSON.parse(extractJSON(fullText));
+
+    // ホットクック操作ガイドをレスポンスに付与（UI側で独立したセクションとして表示）
+    if (hotcookAdvice) {
+      const m = hotcookAdvice.menu_selection;
+      parsed.hotcook = {
+        category: hotcookAdvice.category.name,
+        category_description: hotcookAdvice.category.description ?? "",
+        menu_selection: {
+          primary_path: m.primary_path,
+          auto_menu_examples: m.auto_menu_examples,
+          manual_fallback: {
+            mode: m.manual_fallback.mode,
+            stir: m.manual_fallback.stir,
+            time_min_min: m.manual_fallback.time_min_min,
+            time_max_min: m.manual_fallback.time_max_min,
+            time_condition: m.manual_fallback.time_condition,
+          },
+        },
+        water_note: hotcookAdvice.water_note,
+        stir_note: hotcookAdvice.stir_note,
+        time_note: hotcookAdvice.time_note,
+        safety_notes: hotcookAdvice.safety_notes,
+        capacity_warning: hotcookAdvice.capacity_warning,
+      };
+    }
 
     return new Response(JSON.stringify(parsed), {
       headers: { "Content-Type": "application/json" },
