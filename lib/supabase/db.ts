@@ -113,10 +113,15 @@ const PLAN_LIMITS: Record<string, number> = {
 /**
  * 利用回数をチェックし、上限未満なら +1 してカウントを返す。
  * 上限に達している場合は null を返す。
+ * NEXT_PUBLIC_BETA_MODE=true の間は常に成功（制限なし）。
  */
 export async function checkAndIncrementUsage(
   userId: string
 ): Promise<{ count: number; limit: number } | null> {
+  if (process.env.NEXT_PUBLIC_BETA_MODE === "true") {
+    return { count: 1, limit: 9999 };
+  }
+
   const supabase = createClient();
   const yearMonth = new Date().toISOString().slice(0, 7);
 

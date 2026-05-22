@@ -634,7 +634,7 @@ export default function HomePage() {
           }
         } else if (type === "error") {
           const d = data as { message: string; code?: string };
-          if (d.code === "usage_limit_exceeded") {
+          if (d.code === "usage_limit_exceeded" && process.env.NEXT_PUBLIC_BETA_MODE !== "true") {
             setShowUpgradeModal(true);
             setView("upload");
           } else {
@@ -793,7 +793,7 @@ export default function HomePage() {
           onClose={() => setLoginPrompt((p) => ({ ...p, show: false }))}
         />
       )}
-      {showUpgradeModal && (
+      {showUpgradeModal && process.env.NEXT_PUBLIC_BETA_MODE !== "true" && (
         <UpgradeModal onClose={() => setShowUpgradeModal(false)} locale={locale} />
       )}
     </>
@@ -1263,7 +1263,7 @@ function SettingsView({
           <LanguageSwitcher />
         </div>
 
-        {user && (
+        {user && process.env.NEXT_PUBLIC_BETA_MODE !== "true" && (
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-3">{t("current_plan")}</p>
             <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 flex items-center justify-between">
@@ -1300,7 +1300,7 @@ function SettingsView({
         >
           {t("save")}
         </button>
-        {user && planInfo?.stripe_customer_id && (
+        {user && planInfo?.stripe_customer_id && process.env.NEXT_PUBLIC_BETA_MODE !== "true" && (
           <button
             onClick={async () => {
               setPortalLoading(true);
