@@ -809,24 +809,20 @@ function LanguageSwitcher() {
   const t = useTranslations("settings");
 
   return (
-    <div className="flex items-center gap-1">
-      <button
-        onClick={() => router.replace(pathname, { locale: "ja" })}
-        className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition ${
-          locale === "ja" ? "bg-primary text-white" : "text-gray-400 hover:text-gray-600"
-        }`}
-      >
-        {t("lang_ja")}
-      </button>
-      <span className="text-gray-200 text-sm">|</span>
-      <button
-        onClick={() => router.replace(pathname, { locale: "en" })}
-        className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition ${
-          locale === "en" ? "bg-primary text-white" : "text-gray-400 hover:text-gray-600"
-        }`}
-      >
-        English
-      </button>
+    <div className="flex gap-2">
+      {(["ja", "en"] as const).map((lang) => (
+        <button
+          key={lang}
+          onClick={() => router.replace(pathname, { locale: lang })}
+          className={`flex-1 py-3 rounded-xl text-sm font-semibold transition border-2 ${
+            locale === lang
+              ? "border-primary bg-green-50 text-primary"
+              : "border-gray-100 bg-white text-gray-600 hover:border-gray-200"
+          }`}
+        >
+          {lang === "ja" ? t("lang_ja") : "English"}
+        </button>
+      ))}
     </div>
   );
 }
