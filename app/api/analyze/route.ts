@@ -14,10 +14,16 @@ import { checkHotcookCapability } from "@/lib/hotcook/engine";
 
 type ActiveComp = { role: string; label: string };
 
-const ALWAYS_AVAILABLE_SEASONINGS = `
+const ALWAYS_AVAILABLE_SEASONINGS_JA = `
 醤油・塩・胡椒・砂糖・みりん・料理酒・酢・サラダ油・ごま油・バター・マヨネーズ・ケチャップ
 味噌・だし（和風・コンソメ・鶏がら）・小麦粉・片栗粉・オリーブオイル・めんつゆ・ポン酢
 ウスターソース・ソース・豆板醤・オイスターソース・生姜（チューブ）・にんにく（チューブ）
+`.trim();
+
+const ALWAYS_AVAILABLE_SEASONINGS_EN = `
+soy sauce, salt, pepper, sugar, mirin, cooking sake, vinegar, vegetable oil, sesame oil, butter, mayonnaise, ketchup
+miso, dashi/broth (Japanese, consommé, chicken), flour, cornstarch, olive oil, mentsuyu, ponzu
+Worcestershire sauce, doubanjiang, oyster sauce, ginger (tube), garlic (tube)
 `.trim();
 
 // 1枚の画像から食材のみを認識する軽量プロンプト
@@ -73,31 +79,45 @@ function mergeIngredients(lists: string[][]): string[] {
   return merged;
 }
 
-function buildHistorySection(history: MealHistory[]): string {
+function buildHistorySection(history: MealHistory[], locale: string): string {
   if (!history.length) return "";
 
   const recent = history.slice(0, 14);
-  const lines = recent.map((h) => `- ${h.meal_name}（${h.genre ?? ""}・${h.main_ingredient ?? ""}・${h.cooking_method ?? ""}）`);
-
   const liked = history.filter((h) => h.family_reaction === "liked");
   const disliked = history.filter((h) => h.family_reaction === "disliked");
-  const memos = history.filter((h) => h.next_time_memo).map((h) => `「${h.meal_name}」: ${h.next_time_memo}`);
-
+  const memos = history.filter((h) => h.next_time_memo);
   const parts: string[] = [];
-  parts.push(`【マンネリ回避】過去14日間に提案済みの料理（これらと異なるジャンル・主食材・調理法を選ぶこと）:\n${lines.join("\n")}`);
 
-  if (liked.length) {
-    const likedLines = liked.slice(0, 5).map((h) => `- ${h.meal_name}（${h.genre ?? ""}・${h.main_ingredient ?? ""}）`);
-    parts.push(`【好評だった料理】家族がよく食べた料理（同じジャンル・主食材の料理を積極的に選ぶこと）:\n${likedLines.join("\n")}`);
-  }
-
-  if (disliked.length) {
-    const dislikedLines = disliked.slice(0, 5).map((h) => `- ${h.meal_name}`);
-    parts.push(`【不評だった料理】家族があまり食べなかった料理（これらと同じ料理・同じ主食材は避けること）:\n${dislikedLines.join("\n")}`);
-  }
-
-  if (memos.length) {
-    parts.push(`【次回へのメモ】過去の記録（調理時の参考にすること）:\n${memos.slice(0, 3).map((m) => `- ${m}`).join("\n")}`);
+  if (locale === "en") {
+    const lines = recent.map((h) => `- ${h.meal_name} (${h.genre ?? ""} · ${h.main_ingredient ?? ""} · ${h.cooking_method ?? ""})`);
+    parts.push(`[Variety] Meals suggested in the last 14 days (choose a different genre, main ingredient, and cooking method):\n${lines.join("\n")}`);
+    if (liked.length) {
+      const likedLines = liked.slice(0, 5).map((h) => `- ${h.meal_name} (${h.genre ?? ""} · ${h.main_ingredient ?? ""})`);
+      parts.push(`[Well-received] Meals the family enjoyed (actively choose similar genre/main ingredient):\n${likedLines.join("\n")}`);
+    }
+    if (disliked.length) {
+      const dislikedLines = disliked.slice(0, 5).map((h) => `- ${h.meal_name}`);
+      parts.push(`[Disliked] Meals the family didn't enjoy (avoid the same dish and same main ingredient):\n${dislikedLines.join("\n")}`);
+    }
+    if (memos.length) {
+      const memoLines = memos.slice(0, 3).map((h) => `- "${h.meal_name}": ${h.next_time_memo}`);
+      parts.push(`[Notes for next time] (use as reference when cooking):\n${memoLines.join("\n")}`);
+    }
+  } else {
+    const lines = recent.map((h) => `- ${h.meal_name}（${h.genre ?? ""}・${h.main_ingredient ?? ""}・${h.cooking_method ?? ""}）`);
+    parts.push(`【マンネリ回避】過去14日間に提案済みの料理（これらと異なるジャンル・主食材・調理法を選ぶこと）:\n${lines.join("\n")}`);
+    if (liked.length) {
+      const likedLines = liked.slice(0, 5).map((h) => `- ${h.meal_name}（${h.genre ?? ""}・${h.main_ingredient ?? ""}）`);
+      parts.push(`【好評だった料理】家族がよく食べた料理（同じジャンル・主食材の料理を積極的に選ぶこと）:\n${likedLines.join("\n")}`);
+    }
+    if (disliked.length) {
+      const dislikedLines = disliked.slice(0, 5).map((h) => `- ${h.meal_name}`);
+      parts.push(`【不評だった料理】家族があまり食べなかった料理（これらと同じ料理・同じ主食材は避けること）:\n${dislikedLines.join("\n")}`);
+    }
+    if (memos.length) {
+      const memoLines = memos.slice(0, 3).map((h) => `「${h.meal_name}」: ${h.next_time_memo}`);
+      parts.push(`【次回へのメモ】過去の記録（調理時の参考にすること）:\n${memoLines.map((m) => `- ${m}`).join("\n")}`);
+    }
   }
 
   return parts.map((p) => `\n${p}\n`).join("");
@@ -124,16 +144,27 @@ type HouseholdProfile = {
   ng_foods?: string;
 };
 
-function buildHouseholdSection(profile: HouseholdProfile): string {
+function buildHouseholdSection(profile: HouseholdProfile, locale: string): string {
   const lines: string[] = [];
-  if (profile.has_children) {
-    lines.push(`- 子どもあり${profile.children_age_note ? `（${profile.children_age_note}）` : ""}。子ども向けに辛さ控えめ・食べやすい食材サイズで。`);
+  if (locale === "en") {
+    if (profile.has_children) {
+      lines.push(`- Has children${profile.children_age_note ? ` (${profile.children_age_note})` : ""}. Use mild seasoning and bite-sized ingredients.`);
+    }
+    if (profile.taste_preference === "light") lines.push("- Taste: prefers light seasoning. Use less soy sauce and salt.");
+    if (profile.taste_preference === "rich") lines.push("- Taste: prefers bold flavors. Season well.");
+    if (profile.cooking_policy) lines.push(`- Cooking policy: ${profile.cooking_policy}`);
+    if (profile.ng_foods) lines.push(`- Allergies / foods to avoid: ${profile.ng_foods}`);
+    return lines.length ? `\n[Household Profile]\n${lines.join("\n")}\n` : "";
+  } else {
+    if (profile.has_children) {
+      lines.push(`- 子どもあり${profile.children_age_note ? `（${profile.children_age_note}）` : ""}。子ども向けに辛さ控えめ・食べやすい食材サイズで。`);
+    }
+    if (profile.taste_preference === "light") lines.push("- 味付け: 薄味を好む家庭。醤油・塩を少なめに。");
+    if (profile.taste_preference === "rich") lines.push("- 味付け: 濃いめを好む家庭。しっかり味をつけること。");
+    if (profile.cooking_policy) lines.push(`- 料理方針: ${profile.cooking_policy}`);
+    if (profile.ng_foods) lines.push(`- NG食材・アレルギー: ${profile.ng_foods}`);
+    return lines.length ? `\n【家庭プロファイル】\n${lines.join("\n")}\n` : "";
   }
-  if (profile.taste_preference === "light") lines.push("- 味付け: 薄味を好む家庭。醤油・塩を少なめに。");
-  if (profile.taste_preference === "rich") lines.push("- 味付け: 濃いめを好む家庭。しっかり味をつけること。");
-  if (profile.cooking_policy) lines.push(`- 料理方針: ${profile.cooking_policy}`);
-  if (profile.ng_foods) lines.push(`- NG食材・アレルギー: ${profile.ng_foods}`);
-  return lines.length ? `\n【家庭プロファイル】\n${lines.join("\n")}\n` : "";
 }
 
 function buildPrompt(
@@ -147,18 +178,58 @@ function buildPrompt(
   ingredients: string[],
   household_profile: HouseholdProfile = {}
 ): string {
+  const isEn = locale === "en";
   const mainComp = meal_components.find((c) => c.role === "main");
   const sideComp = meal_components.find((c) => c.role === "side");
   const soupComp = meal_components.find((c) => c.role === "soup");
-  const mainLabel = mainComp?.label ?? "メイン";
+  const mainLabel = mainComp?.label ?? (isEn ? "Main dish" : "メイン");
 
-  const componentNote = [
-    sideComp ? `${sideComp.label}（小鉢1品・汁物以外）` : "",
-    soupComp ? `${soupComp.label}（味噌汁・スープ・汁物など液体の料理のみ）` : "",
-  ].filter(Boolean).join("と");
+  const componentNote = isEn
+    ? [
+        sideComp ? `${sideComp.label} (side dish, not soup)` : "",
+        soupComp ? `${soupComp.label} (must be miso soup, broth, or liquid-based dish)` : "",
+      ].filter(Boolean).join(" and ")
+    : [
+        sideComp ? `${sideComp.label}（小鉢1品・汁物以外）` : "",
+        soupComp ? `${soupComp.label}（味噌汁・スープ・汁物など液体の料理のみ）` : "",
+      ].filter(Boolean).join("と");
 
   const hotcookNote = has_hotcook
-    ? `
+    ? isEn
+      ? `
+==========================================
+🔴 [SMART COOKER RULES — STRICT]
+==========================================
+The user has a Hitachi Hotcook (automatic cooking pot).
+**NEVER suggest dishes that cannot be made in a Hotcook.** This is the highest-priority rule.
+
+[Dishes SUITABLE for Hotcook (prefer these)]
+- Braised meat: nikujaga, chikuzen-ni, pork belly daikon, kakuni, chicken & root veg stew
+- Braised fish: saba miso, buri daikon, sardine ginger stew
+- Braised veg/dried: kabocha nimono, ratatouille, hijiki, kiriboshi daikon
+- Curry/stew: chicken curry, beef curry, keema curry, waterless curry, cream stew
+- Soup: tonjiru, miso soup, pot-au-feu, minestrone, corn potage, clam chowder
+- Steamed: chawanmushi, steamed chicken, shumai
+- Boiled: broccoli, potatoes, corn
+- Low-temp/ferment: salad chicken, yogurt
+- Rice: plain rice, takikomi gohan, risotto
+- Stir-simmered: mapo nasu, meatballs, meat sauce, gapao-style
+
+[Dishes FORBIDDEN in Hotcook (never suggest)]
+- Fried: karaage, tempura, croquette, tonkatsu, ebi fry
+- Grilled with browning: steak, hamburger steak, grilled fish, teriyaki, gyoza, okonomiyaki
+- Egg fry: tamagoyaki, fried egg, omelette, omurice, scrambled eggs
+- Crispy stir-fry: fried rice, yakisoba, yakiudon, stir-fried vegetables, carbonara
+- Baked/grilled: toast, pizza, gratin
+- Raw dishes: sashimi, sushi
+
+[Rules]
+1. Never output dishes with cooking_method "fry" or "grill"
+2. If user requests a forbidden dish, replace with the closest Hotcook-compatible dish
+3. Set cooking_method to one of: simmer, steam, boil, salad (or stir-simmer only for moist stir dishes)
+==========================================
+`
+      : `
 ==========================================
 🔴 【ホットクック対応条件・絶対厳守】
 ==========================================
@@ -200,13 +271,124 @@ function buildPrompt(
     : "";
 
   const hasUserRequest = user_request.trim().length > 0;
+  const seasonings = isEn ? ALWAYS_AVAILABLE_SEASONINGS_EN : ALWAYS_AVAILABLE_SEASONINGS_JA;
+  const ingredientList = ingredients.join(isEn ? ", " : "、");
 
-  const langInstruction = locale === "en"
-    ? "IMPORTANT: Write all text values in English (dish names, reasons, ingredient names, genre, etc.).\n\n"
-    : "";
+  if (isEn) {
+    const energyNote = tired_mode
+      ? "Low energy. Prioritize dishes ready in under 15 min with few ingredients and minimal knife work (3 steps or less). Prefer microwave, slow cooker, heat-and-serve, mix-only, or bag-cooking methods."
+      : "Normal energy";
+    const missingRule = hasUserRequest
+      ? `- If a requested ingredient is not in the fridge, add it to missing_ingredients\n- matched_ingredients must only include items from the fridge list above`
+      : `- Prioritize dishes that can be made only with current fridge items and pantry staples\n- [STRICT] If any ingredient needed for the dish (vegetables, meat, fish, tofu, etc.) is not in matched_ingredients or pantry staples, add it to missing_ingredients. Never hide it.\n- [STRICT] Only set missing_ingredients to [] after confirming no ingredient in the dish is absent from the fridge`;
+    const balanceRule = (sideComp || soupComp) ? "- Choose main and side dishes with varied ingredients to create a balanced meal" : "";
+    const soupRule = soupComp ? "- soup must be a liquid dish (miso soup, broth, stew). Never a salad or stir-fry." : "";
+    const subDishSchema = buildSubDishSection(meal_components);
 
-  const ingredientList = ingredients.join("、");
+    if (hasUserRequest) {
+      return `You are a home cooking expert.
 
+==========================================
+[TOP PRIORITY — MUST FOLLOW]
+User request: "${user_request.trim()}"
+==========================================
+
+[Fridge contents (already recognized from photo)]:
+${ingredientList}
+
+Execute the following steps:
+
+Step 1: Read the request. Identify the ingredient(s) or dish the user wants.
+  - e.g. "I want to use cabbage and pork" → target ingredients: [cabbage, pork]
+  - e.g. "I want curry" → target dish: curry
+
+Step 2: Suggest ONE dish centered on the identified ingredient(s) or dish.
+  ⚠️ Always use the specified ingredient/dish, whether or not it's in the fridge.
+  ⚠️ Do NOT make a different ingredient the star.
+
+Step 3: meal.matched_ingredients — include ONLY fridge items used in the dish.
+Step 4: meal.missing_ingredients — include ALL of:
+  - requested ingredients not in the fridge
+  - any ingredient required for the dish that is neither in the fridge nor in pantry staples
+
+[Situation]
+- Meal: ${meal_time}
+- Energy: ${energyNote}
+- Meal structure: ${mainLabel}${componentNote ? ` + ${componentNote}` : " only"}
+${buildHouseholdSection(household_profile, locale)}${hotcookNote}
+
+[Pantry staples (always available at home)]
+${seasonings}
+${buildHistorySection(history, locale)}
+[Output rules]
+${missingRule}
+${balanceRule}
+${soupRule}
+
+==========================================
+🔴 Reminder:
+You MUST follow the user request "${user_request.trim()}".
+ONLY suggest a dish that features the requested ingredient/dish as the star.
+==========================================
+
+Output JSON only (no code block, no explanation):
+{
+  "ingredients": [${ingredients.map((i) => `"${i}"`).join(", ")}],
+  "meal": {
+    "type": "${tired_mode ? "quick" : "best"}",
+    "name": "Dish name featuring the requested ingredient/dish",
+    "reason": "Why this dish (1 sentence, under 30 words)",
+    "time_minutes": number,
+    "difficulty": "easy|medium|hard",
+    "matched_ingredients": ["fridge items used in the dish"],
+    "missing_ingredients": ["requested items not in fridge + other needed items"],
+    "genre": "Japanese|Western|Chinese|Asian",
+    "main_ingredient": "meat|fish|egg|vegetable|noodle|rice",
+    "cooking_method": "stir-fry|simmer|grill|fry|steam|salad"${subDishSchema}
+  }
+}`;
+    }
+
+    return `You are a home cooking expert. Suggest a dinner for a busy household.
+
+[Fridge contents (already recognized from photo)]:
+${ingredientList}
+
+Situation:
+- Meal: ${meal_time}
+- Energy: ${energyNote}
+- Meal structure: ${mainLabel}${componentNote ? ` + ${componentNote}` : " only"}
+${buildHouseholdSection(household_profile, locale)}${hotcookNote}
+
+[Pantry staples (always available at home)]
+${seasonings}
+${buildHistorySection(history, locale)}
+Suggest a meal using the above ingredients.
+
+[Required rules]
+${missingRule}
+${balanceRule}
+${soupRule}
+
+Output JSON only (no code block, no explanation):
+{
+  "ingredients": [${ingredients.map((i) => `"${i}"`).join(", ")}],
+  "meal": {
+    "type": "${tired_mode ? "quick" : "best"}",
+    "name": "${mainLabel} dish name",
+    "reason": "Why this dish (1 sentence, under 30 words)",
+    "time_minutes": number,
+    "difficulty": "easy|medium|hard",
+    "matched_ingredients": ["fridge items used in the dish"],
+    "missing_ingredients": [],
+    "genre": "Japanese|Western|Chinese|Asian",
+    "main_ingredient": "meat|fish|egg|vegetable|noodle|rice",
+    "cooking_method": "stir-fry|simmer|grill|fry|steam|salad"${subDishSchema}
+  }
+}`;
+  }
+
+  // Japanese prompt
   const missingIngredientsRule = hasUserRequest
     ? `- リクエスト食材が冷蔵庫にない場合は必ず missing_ingredients に追加すること
 - matched_ingredients には上記の冷蔵庫食材のうち料理に使うもののみ入れること`
@@ -215,7 +397,7 @@ function buildPrompt(
 - 【絶対厳守】missing_ingredients を [] にするときは、料理名・料理内容に冷蔵庫にない食材が一切含まれていないことを確認してから出力すること`;
 
   if (hasUserRequest) {
-    return `${langInstruction}あなたは家庭料理の専門家です。
+    return `あなたは家庭料理の専門家です。
 
 ==========================================
 【最優先指示・絶対に守ること】
@@ -244,11 +426,11 @@ ${ingredientList}
 - 食事: ${meal_time}
 - 余力: ${tired_mode ? "疲れている。調理時間15分以内・食材少なめ・包丁をほぼ使わない・工程が3ステップ以内の料理を優先。電子レンジ・ホットクック・温めるだけ・混ぜるだけ・袋のまま調理など、手間が最小の調理法を選ぶこと" : "通常"}
 - 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
-${buildHouseholdSection(household_profile)}${hotcookNote}
+${buildHouseholdSection(household_profile, locale)}${hotcookNote}
 
 【常備調味料・基本食材（常に自宅にあるものとして扱う）】
-${ALWAYS_AVAILABLE_SEASONINGS}
-${buildHistorySection(history)}
+${seasonings}
+${buildHistorySection(history, locale)}
 【出力ルール】
 ${missingIngredientsRule}
 ${sideComp || soupComp ? `- メインとサブ料理は食材が重複しすぎないよう、バランスよく選ぶこと` : ""}
@@ -278,7 +460,7 @@ ${soupComp ? `- soupには必ず味噌汁・スープ・汁物など液体を含
 }`;
   }
 
-  return `${langInstruction}あなたは家庭料理の専門家です。共働き家庭向けに献立を提案してください。
+  return `あなたは家庭料理の専門家です。共働き家庭向けに献立を提案してください。
 
 【冷蔵庫にある食材】（画像認識済み）:
 ${ingredientList}
@@ -287,11 +469,11 @@ ${ingredientList}
 - 食事: ${meal_time}
 - 余力: ${tired_mode ? "疲れている。調理時間15分以内・食材少なめ・包丁をほぼ使わない・工程が3ステップ以内の料理を優先。電子レンジ・ホットクック・温めるだけ・混ぜるだけ・袋のまま調理など、手間が最小の調理法を選ぶこと" : "通常"}
 - 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
-${buildHouseholdSection(household_profile)}${hotcookNote}
+${buildHouseholdSection(household_profile, locale)}${hotcookNote}
 
 【常備調味料・基本食材（常に自宅にあるものとして扱う）】
-${ALWAYS_AVAILABLE_SEASONINGS}
-${buildHistorySection(history)}
+${seasonings}
+${buildHistorySection(history, locale)}
 上記の食材を使って献立を提案してください。
 
 【必須ルール】
