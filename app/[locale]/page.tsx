@@ -433,6 +433,7 @@ export default function HomePage() {
             ? { ...meal.soup, label: getComponentLabel(selectedPattern, "soup", locale) }
             : null,
           locale,
+          tiredMode,
         }),
       });
       if (!res.ok) throw new Error("recipe fetch failed");
@@ -444,7 +445,7 @@ export default function HomePage() {
     } finally {
       setRecipeLoading(false);
     }
-  }, [settings, selectedAppliance, selectedPattern, locale, sessionId]);
+  }, [settings, selectedAppliance, selectedPattern, locale, sessionId, tiredMode]);
 
   // ── Phase B: alternatives (background) ─────────────────────────────────────
 
