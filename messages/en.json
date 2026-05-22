@@ -58,6 +58,8 @@
     "request_q": "Request (optional)",
     "request_placeholder": "e.g. I want curry, use the cabbage...",
     "analyze": "Analyze",
+    "feedback": "Send feedback",
+    "feedback_aria": "Open feedback form",
     "hotcook": "Smart Cooker",
     "pan": "Pan",
     "microwave": "Microwave",
