@@ -33,6 +33,9 @@ export type MealHistory = {
   cooking_method: string | null;
   was_selected: boolean;
   was_cooked: boolean;
+  family_reaction: "liked" | "disliked" | null;
+  reaction_memo: string | null;
+  next_time_memo: string | null;
   created_at: string;
 };
 
