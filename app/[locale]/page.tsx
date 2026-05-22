@@ -759,7 +759,6 @@ export default function HomePage() {
         ownedAppliances={settings?.appliances ?? []}
         selectedAppliance={selectedAppliance}
         error={error}
-        fileInputRef={fileInputRef}
         onAddFiles={addFiles}
         onRemoveImage={removeImage}
         showCamera={showCamera}
@@ -1534,7 +1533,6 @@ function UploadView({
   ownedAppliances,
   selectedAppliance,
   error,
-  fileInputRef,
   onAddFiles,
   onRemoveImage,
   showCamera,
@@ -1557,7 +1555,6 @@ function UploadView({
   ownedAppliances: string[];
   selectedAppliance: string;
   error: string | null;
-  fileInputRef: React.RefObject<HTMLInputElement>;
   onAddFiles: (files: FileList | File[]) => void;
   onRemoveImage: (idx: number) => void;
   showCamera: boolean;
@@ -1621,29 +1618,17 @@ function UploadView({
       )}
 
       <div
-        className="border-2 border-dashed border-gray-200 rounded-3xl p-6 mb-4 bg-white transition"
+        className="border-2 border-dashed border-gray-200 rounded-3xl p-6 mb-4 bg-white cursor-pointer active:bg-gray-50 transition"
         onDrop={(e) => { e.preventDefault(); onAddFiles(e.dataTransfer.files); }}
         onDragOver={(e) => e.preventDefault()}
+        onClick={() => images.length < MAX_IMAGES && onOpenCamera()}
       >
         {images.length === 0 ? (
-          <div className="flex flex-col items-center py-4 gap-4">
+          <div className="flex flex-col items-center py-6 gap-3">
             <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center">
               <Camera size={36} className="text-primary" />
             </div>
-            <div className="flex gap-3 w-full">
-              <button
-                onClick={() => images.length < MAX_IMAGES && onOpenCamera()}
-                className="flex-1 py-3 rounded-2xl bg-primary text-white font-semibold text-sm flex items-center justify-center gap-2 active:opacity-80 transition"
-              >
-                <Camera size={16} /> カメラ
-              </button>
-              <button
-                onClick={() => images.length < MAX_IMAGES && fileInputRef.current?.click()}
-                className="flex-1 py-3 rounded-2xl bg-gray-100 text-gray-700 font-semibold text-sm active:bg-gray-200 transition"
-              >
-                {t("gallery")}
-              </button>
-            </div>
+            <p className="font-semibold text-gray-700">{t("photo_cta")}</p>
           </div>
         ) : (
           <div className="flex flex-wrap gap-3">
@@ -1658,32 +1643,13 @@ function UploadView({
               </div>
             ))}
             {images.length < MAX_IMAGES && (
-              <div className="flex gap-2 mt-1 w-full">
-                <button
-                  onClick={() => onOpenCamera()}
-                  className="w-20 h-20 border-2 border-dashed border-primary rounded-2xl flex flex-col items-center justify-center text-primary text-xs gap-1 hover:bg-green-50 transition"
-                >
-                  <Camera size={18} />
-                </button>
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex items-center justify-center text-gray-400 text-2xl hover:border-primary hover:text-primary transition cursor-pointer"
-                >
-                  +
-                </div>
+              <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex items-center justify-center text-gray-400 text-2xl hover:border-primary hover:text-primary transition">
+                +
               </div>
             )}
           </div>
         )}
       </div>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,image/heic,image/heif"
-        multiple
-        className="hidden"
-        onChange={(e) => e.target.files && onAddFiles(e.target.files)}
-      />
 
       <p className="text-xs text-gray-400 text-center mb-6">
         {t(images.length > 0 ? "count_with_tip" : "count_only", {
