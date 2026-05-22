@@ -23,7 +23,7 @@ const FEEDBACK_FORM_URLS = {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AppView = "onboarding" | "upload" | "recognizing" | "ingredient-confirm" | "analyzing" | "result" | "recipe" | "settings" | "login" | "history";
+type AppView = "onboarding" | "upload" | "recognizing" | "ingredient-confirm" | "analyzing" | "result" | "recipe" | "settings" | "login" | "history" | "favorites";
 type AnalyzingPhase = "scanning" | "generating";
 
 type SubDish = {
@@ -254,7 +254,7 @@ export default function HomePage() {
           { onConflict: "id", ignoreDuplicates: true }
         );
         // DBからお気に入りを読み込み（localStorage とマージ）
-        fetch("/api/favorites")
+        fetch("/api/favorites?names=1")
           .then((r) => r.json())
           .then((d) => {
             if (Array.isArray(d.favorites)) {
@@ -299,7 +299,7 @@ export default function HomePage() {
           { id: session.user.id, email: session.user.email ?? "" },
           { onConflict: "id", ignoreDuplicates: true }
         );
-        fetch("/api/favorites")
+        fetch("/api/favorites?names=1")
           .then((r) => r.json())
           .then((d) => {
             if (Array.isArray(d.favorites)) {
@@ -754,6 +754,29 @@ export default function HomePage() {
     );
   }
 
+  if (view === "favorites") {
+    return (
+      <FavoritesView
+        onBack={() => setView("upload")}
+        onLogin={() => setView("login")}
+        user={user}
+        favorites={favorites}
+        onRemoveFavorite={(name) => {
+          setFavorites((prev) => {
+            const next = prev.filter((n) => n !== name);
+            localStorage.setItem("snapmeal_favorites", JSON.stringify(next));
+            return next;
+          });
+          fetch("/api/favorites", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ meal_name: name }),
+          }).catch(() => {});
+        }}
+      />
+    );
+  }
+
   return (
     <>
       <UploadView
@@ -786,6 +809,7 @@ export default function HomePage() {
         onAnalyze={startRecognition}
         onOpenSettings={() => setView("settings")}
         onOpenHistory={() => setView("history")}
+        onOpenFavorites={() => setView("favorites")}
       />
       {loginPrompt.show && (
         <LoginPromptModal
@@ -1080,6 +1104,119 @@ function HistoryView({
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+// ─── Favorites view ───────────────────────────────────────────────────────────
+
+type FavoriteItem = {
+  meal_name: string;
+  genre: string | null;
+  reason: string | null;
+  time_minutes: number | null;
+  difficulty: string | null;
+  created_at: string;
+};
+
+function FavoritesView({
+  onBack,
+  onLogin,
+  user,
+  favorites,
+  onRemoveFavorite,
+}: {
+  onBack: () => void;
+  onLogin: () => void;
+  user: import("@supabase/supabase-js").User | null;
+  favorites: string[];
+  onRemoveFavorite: (name: string) => void;
+}) {
+  const t = useTranslations("favorites");
+  const [items, setItems] = useState<FavoriteItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    fetch("/api/favorites")
+      .then((r) => r.json())
+      .then((d) => { setItems(Array.isArray(d.favorites) ? d.favorites : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [user]);
+
+  const difficultyLabel: Record<string, string> = { easy: t("easy"), medium: t("medium"), hard: t("hard") };
+
+  return (
+    <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
+      <div className="bg-primary-dark px-4 py-3 flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <h1 className="text-lg font-bold text-white">{t("title")}</h1>
+      </div>
+
+      <div className="flex-1 px-4 py-4">
+        {!user ? (
+          <div className="flex flex-col items-center gap-4 mt-16 text-center">
+            <Heart size={48} className="text-gray-300" />
+            <p className="text-gray-500 text-sm">{t("login_required")}</p>
+            <button
+              onClick={onLogin}
+              className="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm"
+            >
+              {t("login_btn")}
+            </button>
+          </div>
+        ) : loading ? (
+          <div className="flex justify-center mt-16">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : items.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 mt-16 text-center">
+            <Heart size={48} className="text-gray-300" />
+            <p className="text-gray-500 text-sm">{t("empty")}</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {items.map((item) => (
+              <div key={item.meal_name} className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 text-sm">{item.meal_name}</p>
+                    {item.reason && (
+                      <p className="text-xs text-gray-500 mt-1 leading-relaxed">{item.reason}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      {item.genre && (
+                        <span className="text-xs bg-green-50 text-primary px-2 py-0.5 rounded-full font-semibold">{item.genre}</span>
+                      )}
+                      {item.time_minutes && (
+                        <span className="text-xs text-gray-400">⏱ {item.time_minutes}{t("min")}</span>
+                      )}
+                      {item.difficulty && difficultyLabel[item.difficulty] && (
+                        <span className="text-xs text-gray-400">★ {difficultyLabel[item.difficulty]}</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setItems((prev) => prev.filter((i) => i.meal_name !== item.meal_name));
+                      onRemoveFavorite(item.meal_name);
+                    }}
+                    className="shrink-0 p-1.5 rounded-full hover:bg-red-50 transition"
+                    aria-label={t("remove_aria")}
+                  >
+                    <Heart size={18} className="fill-red-400 text-red-400" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -1469,6 +1606,7 @@ function UploadView({
   onAnalyze,
   onOpenSettings,
   onOpenHistory,
+  onOpenFavorites,
 }: {
   images: ImageItem[];
   tiredMode: boolean;
@@ -1492,6 +1630,7 @@ function UploadView({
   onAnalyze: () => void;
   onOpenSettings: () => void;
   onOpenHistory: () => void;
+  onOpenFavorites: () => void;
 }) {
   const t = useTranslations("upload");
   const locale = useLocale() as "ja" | "en";
@@ -1521,6 +1660,13 @@ function UploadView({
               <MessageSquare size={18} />
             </a>
           )}
+          <button
+            onClick={onOpenFavorites}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white"
+            aria-label="Favorites"
+          >
+            <Heart size={18} />
+          </button>
           <button
             onClick={onOpenHistory}
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white"

@@ -1,11 +1,16 @@
 import { NextRequest } from "next/server";
-import { getAuthUserId, getFavorites, addFavorite, removeFavorite } from "@/lib/supabase/db";
+import { getAuthUserId, getFavorites, getFavoriteNames, addFavorite, removeFavorite } from "@/lib/supabase/db";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const userId = await getAuthUserId();
   if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
-  const mealNames = await getFavorites(userId);
-  return Response.json({ favorites: mealNames });
+  const namesOnly = req.nextUrl.searchParams.get("names") === "1";
+  if (namesOnly) {
+    const mealNames = await getFavoriteNames(userId);
+    return Response.json({ favorites: mealNames });
+  }
+  const items = await getFavorites(userId);
+  return Response.json({ favorites: items });
 }
 
 export async function POST(req: NextRequest) {
