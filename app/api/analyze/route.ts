@@ -167,6 +167,27 @@ function buildHouseholdSection(profile: HouseholdProfile, locale: string): strin
   }
 }
 
+function buildFavoritesSection(favorites: string[], disliked: string[], locale: string): string {
+  if (!favorites.length && !disliked.length) return "";
+  const parts: string[] = [];
+  if (locale === "en") {
+    if (favorites.length) {
+      parts.push(`[Favorites] Meals this user has saved (prefer similar genre/main ingredient):\n${favorites.slice(0, 10).map((n) => `- ${n}`).join("\n")}`);
+    }
+    if (disliked.length) {
+      parts.push(`[Not interested] Meals the user marked as uninteresting (avoid the same dish):\n${disliked.slice(0, 10).map((n) => `- ${n}`).join("\n")}`);
+    }
+  } else {
+    if (favorites.length) {
+      parts.push(`【お気に入り】ユーザーが保存した料理（同じジャンル・主食材を積極的に選ぶこと）:\n${favorites.slice(0, 10).map((n) => `- ${n}`).join("\n")}`);
+    }
+    if (disliked.length) {
+      parts.push(`【不要な提案】ユーザーが「興味なし」にした料理（同じ料理は絶対に提案しないこと）:\n${disliked.slice(0, 10).map((n) => `- ${n}`).join("\n")}`);
+    }
+  }
+  return parts.map((p) => `\n${p}\n`).join("");
+}
+
 function buildPrompt(
   tired_mode: boolean,
   meal_time: string,
@@ -176,7 +197,9 @@ function buildPrompt(
   has_hotcook: boolean,
   user_request: string,
   ingredients: string[],
-  household_profile: HouseholdProfile = {}
+  household_profile: HouseholdProfile = {},
+  favorite_meals: string[] = [],
+  disliked_meals: string[] = []
 ): string {
   const isEn = locale === "en";
   const mainComp = meal_components.find((c) => c.role === "main");
@@ -319,7 +342,7 @@ ${buildHouseholdSection(household_profile, locale)}${hotcookNote}
 
 [Pantry staples (always available at home)]
 ${seasonings}
-${buildHistorySection(history, locale)}
+${buildHistorySection(history, locale)}${buildFavoritesSection(favorite_meals, disliked_meals, locale)}
 [Output rules]
 ${missingRule}
 ${balanceRule}
@@ -362,7 +385,7 @@ ${buildHouseholdSection(household_profile, locale)}${hotcookNote}
 
 [Pantry staples (always available at home)]
 ${seasonings}
-${buildHistorySection(history, locale)}
+${buildHistorySection(history, locale)}${buildFavoritesSection(favorite_meals, disliked_meals, locale)}
 Suggest a meal using the above ingredients.
 
 [Required rules]
@@ -430,7 +453,7 @@ ${buildHouseholdSection(household_profile, locale)}${hotcookNote}
 
 【常備調味料・基本食材（常に自宅にあるものとして扱う）】
 ${seasonings}
-${buildHistorySection(history, locale)}
+${buildHistorySection(history, locale)}${buildFavoritesSection(favorite_meals, disliked_meals, locale)}
 【出力ルール】
 ${missingIngredientsRule}
 ${sideComp || soupComp ? `- メインとサブ料理は食材が重複しすぎないよう、バランスよく選ぶこと` : ""}
@@ -473,7 +496,7 @@ ${buildHouseholdSection(household_profile, locale)}${hotcookNote}
 
 【常備調味料・基本食材（常に自宅にあるものとして扱う）】
 ${seasonings}
-${buildHistorySection(history, locale)}
+${buildHistorySection(history, locale)}${buildFavoritesSection(favorite_meals, disliked_meals, locale)}
 上記の食材を使って献立を提案してください。
 
 【必須ルール】
@@ -575,6 +598,8 @@ export async function POST(req: NextRequest) {
     appliances = [],
     user_request = "",
     household_profile = {},
+    favorite_meals = [],
+    disliked_meals = [],
   } = await req.json();
 
   // ingredients_override がある場合は画像不要（食材確認画面からの呼び出し）
@@ -642,7 +667,8 @@ export async function POST(req: NextRequest) {
         // Phase 2: 食材リストのみで献立生成（画像再送なし）
         const prompt = buildPrompt(
           tired_mode, meal_time, history, meal_components as ActiveComp[],
-          locale, has_hotcook, user_request, ingredients, household_profile as HouseholdProfile
+          locale, has_hotcook, user_request, ingredients, household_profile as HouseholdProfile,
+          favorite_meals as string[], disliked_meals as string[]
         );
         if (process.env.GEMINI_API_KEY) {
           try {

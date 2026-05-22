@@ -205,6 +205,10 @@ export default function HomePage() {
   const [enabledRoles, setEnabledRoles] = useState<ComponentRole[]>([]);
   const [userRequest, setUserRequest] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [dislikedMeals, setDislikedMeals] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem("snapmeal_disliked") ?? "[]") as string[]; } catch { return []; }
+  });
   const [loginPrompt, setLoginPrompt] = useState<{ show: boolean; reason: "favorite" | "limit" }>({ show: false, reason: "favorite" });
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -584,6 +588,8 @@ export default function HomePage() {
           cooking_policy: settings?.cooking_policy,
           ng_foods: settings?.ng_foods,
         },
+        favorite_meals: favorites.slice(0, 10),
+        disliked_meals: dislikedMeals.slice(0, 10),
       };
       if (useOverride) {
         body.ingredients_override = ingredientsToUse;
@@ -717,7 +723,17 @@ export default function HomePage() {
           onSelectMeal={fetchRecipe}
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
+          dislikedMeals={dislikedMeals}
+          onDislikeMeal={(name) => {
+            setDislikedMeals((prev) => {
+              const next = prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name];
+              localStorage.setItem("snapmeal_disliked", JSON.stringify(next));
+              return next;
+            });
+          }}
           selectedPattern={selectedPattern}
+          sessionId={sessionId}
+          user={user}
         />
         {loginPrompt.show && (
           <LoginPromptModal
@@ -2482,29 +2498,17 @@ function RecipeView({
           </div>
 
           <div className="px-4 pb-8 pt-4 bg-white border-t border-gray-100 space-y-3">
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  const next = wasCooked === true ? null : true;
-                  setWasCooked(next);
-                  saveFeedbackData({ wasCooked: next ?? undefined });
-                  if (next === true) trackEvent(EVENTS.RECIPE_COOKED, { meal_name: recipe.title });
-                }}
-                className={`flex-1 py-3 rounded-2xl font-bold text-sm transition ${wasCooked === true ? "bg-accent text-white shadow-lg shadow-green-200" : "bg-gray-100 text-gray-600 hover:bg-green-50"}`}
-              >
-                {t("cooked")}
-              </button>
-              <button
-                onClick={() => {
-                  const next = wasCooked === false ? null : false;
-                  setWasCooked(next);
-                  saveFeedbackData({ wasCooked: next ?? undefined });
-                }}
-                className={`flex-1 py-3 rounded-2xl font-bold text-sm transition ${wasCooked === false ? "bg-gray-400 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-              >
-                {t("not_cooked")}
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                const next = wasCooked === true ? null : true;
+                setWasCooked(next);
+                saveFeedbackData({ wasCooked: next ?? undefined });
+                if (next === true) trackEvent(EVENTS.RECIPE_COOKED, { meal_name: recipe.title });
+              }}
+              className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all ${wasCooked === true ? "bg-primary text-white shadow-lg shadow-green-200 scale-[1.02]" : "bg-gray-100 text-gray-600 hover:bg-green-50 hover:text-primary"}`}
+            >
+              {wasCooked === true ? "✅ " + t("cooked_done") : t("cooked")}
+            </button>
 
             {wasCooked === true && (
               <div className="space-y-2">
@@ -2576,7 +2580,11 @@ function ResultView({
   onSelectMeal,
   favorites,
   onToggleFavorite,
+  dislikedMeals,
+  onDislikeMeal,
   selectedPattern,
+  sessionId,
+  user,
 }: {
   meals: Meal[];
   activeMealIdx: number;
@@ -2585,17 +2593,31 @@ function ResultView({
   onSelectMeal: (meal: Meal) => void;
   favorites: string[];
   onToggleFavorite: (meal: Meal) => void;
+  dislikedMeals: string[];
+  onDislikeMeal: (name: string) => void;
   selectedPattern: MealPattern;
+  sessionId: string | null;
+  user: import("@supabase/supabase-js").User | null;
 }) {
   const t = useTranslations("result");
   const locale = useLocale() as "ja" | "en";
   const meal = meals[activeMealIdx];
+  const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   if (!meal) return null;
 
   const canGoNext = activeMealIdx < meals.length - 1;
   const canGoPrev = activeMealIdx > 0;
   const totalSlots = 3;
   const isFavorite = favorites.includes(meal.name);
+  const isDisliked = dislikedMeals.includes(meal.name);
+
+  const copyMissingIngredients = () => {
+    const text = meal.missing_ingredients.join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopyState("copied");
+      setTimeout(() => setCopyState("idle"), 2000);
+    }).catch(() => {});
+  };
 
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -2675,6 +2697,37 @@ function ResultView({
             <p className="text-sm text-gray-600">{meal.matched_ingredients.join("・")}</p>
           </div>
         )}
+
+        {meal.missing_ingredients?.length > 0 && (
+          <div className="bg-white rounded-2xl p-4 border border-gray-100">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold text-gray-700">{t("missing", { count: meal.missing_ingredients.length })}</p>
+              <button
+                onClick={copyMissingIngredients}
+                className="flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-dark transition px-2 py-1 rounded-lg hover:bg-green-50"
+              >
+                {copyState === "copied" ? "✓ " + t("copied") : "📋 " + t("copy")}
+              </button>
+            </div>
+            <p className="text-sm text-gray-600">{meal.missing_ingredients.join("・")}</p>
+          </div>
+        )}
+
+        <div className="flex items-center justify-center gap-4 py-1">
+          <button
+            onClick={() => onToggleFavorite(meal)}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition ${isFavorite ? "bg-red-50 text-red-500" : "bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-400"}`}
+          >
+            <Heart size={16} className={isFavorite ? "fill-red-500" : ""} />
+            {isFavorite ? t("favorited") : t("favorite")}
+          </button>
+          <button
+            onClick={() => onDislikeMeal(meal.name)}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition ${isDisliked ? "bg-gray-200 text-gray-600" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}
+          >
+            👎 {isDisliked ? t("disliked") : t("dislike")}
+          </button>
+        </div>
 
       </div>
 
