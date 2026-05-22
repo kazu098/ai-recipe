@@ -1457,11 +1457,16 @@ function SettingsView({
 function WebCameraModal({ onCapture, onClose }: { onCapture: (file: File) => void; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fallbackInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [useFallback, setUseFallback] = useState(false);
 
   useEffect(() => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setUseFallback(true);
+      return;
+    }
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: "environment" }, audio: false })
       .then((stream) => {
@@ -1472,10 +1477,20 @@ function WebCameraModal({ onCapture, onClose }: { onCapture: (file: File) => voi
           setReady(true);
         }
       })
-      .catch(() => setError("カメラにアクセスできませんでした"));
+      .catch(() => {
+        // getUserMedia失敗 → ネイティブカメラ（capture属性）にフォールバック
+        setUseFallback(true);
+      });
 
     return () => { streamRef.current?.getTracks().forEach((t) => t.stop()); };
   }, []);
+
+  // フォールバック時：inputをマウント後すぐにクリック
+  useEffect(() => {
+    if (useFallback) {
+      setTimeout(() => fallbackInputRef.current?.click(), 100);
+    }
+  }, [useFallback]);
 
   const capture = () => {
     const video = videoRef.current;
@@ -1492,33 +1507,44 @@ function WebCameraModal({ onCapture, onClose }: { onCapture: (file: File) => voi
     }, "image/jpeg", 0.92);
   };
 
+  // フォールバック: ネイティブcaptureでカメラを起動
+  if (useFallback) {
+    return (
+      <>
+        <input
+          ref={fallbackInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) onCapture(file);
+            else onClose();
+          }}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      {error ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
-          <p className="text-white text-center">{error}</p>
-          <button onClick={onClose} className="px-6 py-3 bg-white text-black rounded-2xl font-bold">閉じる</button>
-        </div>
-      ) : (
-        <>
-          <div className="flex-1 relative overflow-hidden">
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline />
-          </div>
-          <canvas ref={canvasRef} className="hidden" />
-          <div className="flex items-center justify-between px-10 py-8 bg-black">
-            <button onClick={onClose} className="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center text-white text-sm">
-              ✕
-            </button>
-            <button
-              onClick={capture}
-              disabled={!ready}
-              className="w-20 h-20 rounded-full bg-white border-4 border-gray-300 disabled:opacity-40 active:scale-95 transition"
-            />
-            <div className="w-14 h-14" />
-          </div>
-        </>
-      )}
+      <div className="flex-1 relative overflow-hidden">
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline />
+      </div>
+      <canvas ref={canvasRef} className="hidden" />
+      <div className="flex items-center justify-between px-10 py-8 bg-black">
+        <button onClick={onClose} className="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center text-white text-sm">
+          ✕
+        </button>
+        <button
+          onClick={capture}
+          disabled={!ready}
+          className="w-20 h-20 rounded-full bg-white border-4 border-gray-300 disabled:opacity-40 active:scale-95 transition"
+        />
+        <div className="w-14 h-14" />
+      </div>
     </div>
   );
 }
