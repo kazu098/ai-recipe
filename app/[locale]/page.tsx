@@ -2561,11 +2561,19 @@ function LoginPromptModal({
             {reason === "favorite" ? t("fav_title") : t("limit_title")}
           </h3>
           <p className="text-sm text-gray-500 leading-relaxed">
-            {reason === "favorite"
-              ? t("fav_body")
-              : t("limit_body", { limit: GUEST_LIMIT })}
+            {reason === "favorite" ? t("fav_body") : t("limit_body")}
           </p>
         </div>
+        {reason === "limit" && (
+          <ul className="bg-green-50 rounded-2xl px-4 py-3 mb-5 space-y-2">
+            {(t.raw("limit_benefits") as string[]).map((benefit: string, i: number) => (
+              <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                <span className="text-green-500 font-bold">✓</span>
+                {benefit}
+              </li>
+            ))}
+          </ul>
+        )}
         <button
           onClick={onLogin}
           className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-200 hover:opacity-90 transition mb-3"
