@@ -75,13 +75,32 @@ function mergeIngredients(lists: string[][]): string[] {
 
 function buildHistorySection(history: MealHistory[]): string {
   if (!history.length) return "";
-  const lines = history
-    .slice(0, 14)
-    .map((h) => `- ${h.meal_name}（${h.genre ?? ""}・${h.main_ingredient ?? ""}・${h.cooking_method ?? ""}）`);
-  return `
-【マンネリ回避】過去14日間に提案済みの料理（これらと異なるジャンル・主食材・調理法を選ぶこと）:
-${lines.join("\n")}
-`;
+
+  const recent = history.slice(0, 14);
+  const lines = recent.map((h) => `- ${h.meal_name}（${h.genre ?? ""}・${h.main_ingredient ?? ""}・${h.cooking_method ?? ""}）`);
+
+  const liked = history.filter((h) => h.family_reaction === "liked");
+  const disliked = history.filter((h) => h.family_reaction === "disliked");
+  const memos = history.filter((h) => h.next_time_memo).map((h) => `「${h.meal_name}」: ${h.next_time_memo}`);
+
+  const parts: string[] = [];
+  parts.push(`【マンネリ回避】過去14日間に提案済みの料理（これらと異なるジャンル・主食材・調理法を選ぶこと）:\n${lines.join("\n")}`);
+
+  if (liked.length) {
+    const likedLines = liked.slice(0, 5).map((h) => `- ${h.meal_name}（${h.genre ?? ""}・${h.main_ingredient ?? ""}）`);
+    parts.push(`【好評だった料理】家族がよく食べた料理（同じジャンル・主食材の料理を積極的に選ぶこと）:\n${likedLines.join("\n")}`);
+  }
+
+  if (disliked.length) {
+    const dislikedLines = disliked.slice(0, 5).map((h) => `- ${h.meal_name}`);
+    parts.push(`【不評だった料理】家族があまり食べなかった料理（これらと同じ料理・同じ主食材は避けること）:\n${dislikedLines.join("\n")}`);
+  }
+
+  if (memos.length) {
+    parts.push(`【次回へのメモ】過去の記録（調理時の参考にすること）:\n${memos.slice(0, 3).map((m) => `- ${m}`).join("\n")}`);
+  }
+
+  return parts.map((p) => `\n${p}\n`).join("");
 }
 
 function buildSubDishSection(components: ActiveComp[]): string {
