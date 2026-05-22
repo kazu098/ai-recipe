@@ -132,13 +132,15 @@
     "fav_body": "Log in to save and manage your favorite meals.",
     "limit_title": "You've used all free tries",
     "limit_body": "Log in to keep going.",
-    "limit_benefits": ["Keep getting meal suggestions", "Hotcook category & menu guidance", "Auto-list missing ingredients (one-tap copy)", "Manage favorites, history & family notes"],
+    "limit_benefit_1": "Keep getting meal suggestions",
+    "limit_benefit_2": "Save and manage your favorites",
+    "limit_benefit_3": "Review your past meal history",
     "cta": "Log in (free)",
     "later": "Later"
   },
   "upgrade": {
     "title": "Monthly limit reached",
-    "body": "5 min/day deciding "what's for dinner?" × 30 days = 2.5 hrs/month.\n¥980/mo (¥33/day) — let AI handle it all.",
+    "body": "5 min/day deciding what to cook × 30 days = 2.5 hrs/month.\n¥980/mo (¥33/day) — let AI handle it all.",
     "free_label": "Free",
     "free_price": "¥0",
     "free_count": "10 uses/month",

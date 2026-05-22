@@ -2673,7 +2673,7 @@ function LoginPromptModal({
         </div>
         {reason === "limit" && (
           <ul className="bg-green-50 rounded-2xl px-4 py-3 mb-5 space-y-2">
-            {(t.raw("limit_benefits") as string[]).map((benefit: string, i: number) => (
+            {[t("limit_benefit_1"), t("limit_benefit_2"), t("limit_benefit_3")].map((benefit, i) => (
               <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
                 <span className="text-green-500 font-bold">✓</span>
                 {benefit}
