@@ -153,6 +153,19 @@
     "redirecting": "Stripeへ移動中...",
     "wait": "来月まで待つ"
   },
+  "ingredientConfirm": {
+    "title": "認識した食材",
+    "subtitle": "画像を確認しながら追加・削除できます",
+    "fridge_img_alt": "冷蔵庫 {n}",
+    "section_title": "認識した食材",
+    "tap_to_remove": "（タップで削除）",
+    "empty": "食材が認識されませんでした",
+    "add_section": "食材を追加",
+    "placeholder": "例: 豚バラ肉、卵...",
+    "add_btn": "追加",
+    "confirm_btn": "この食材で献立を作る",
+    "expanded_alt": "冷蔵庫の写真"
+  },
   "authCallback": {
     "loading": "ログイン中..."
   }

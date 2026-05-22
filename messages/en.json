@@ -153,6 +153,19 @@
     "redirecting": "Redirecting to Stripe...",
     "wait": "Wait until next month"
   },
+  "ingredientConfirm": {
+    "title": "Recognized ingredients",
+    "subtitle": "You can add or remove items while checking the photos",
+    "fridge_img_alt": "Fridge photo {n}",
+    "section_title": "Recognized ingredients",
+    "tap_to_remove": "(tap to remove)",
+    "empty": "No ingredients were recognized",
+    "add_section": "Add ingredients",
+    "placeholder": "e.g. pork belly, eggs...",
+    "add_btn": "Add",
+    "confirm_btn": "Plan my meal with these ingredients",
+    "expanded_alt": "Fridge photo"
+  },
   "authCallback": {
     "loading": "Logging in..."
   }

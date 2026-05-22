@@ -1735,6 +1735,7 @@ function IngredientConfirmView({
   onConfirm: (edited: string[]) => void;
   onBack: () => void;
 }) {
+  const t = useTranslations("ingredientConfirm");
   const [items, setItems] = useState<string[]>(ingredients);
   const [input, setInput] = useState("");
   const [expandedImg, setExpandedImg] = useState<string | null>(null);
@@ -1753,18 +1754,16 @@ function IngredientConfirmView({
 
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto px-4 py-6">
-      {/* ヘッダー */}
       <div className="flex items-center gap-3 mb-4">
         <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-100 transition">
           <ArrowLeft size={20} className="text-gray-600" />
         </button>
         <div>
-          <h1 className="text-lg font-bold text-gray-900">認識した食材</h1>
-          <p className="text-xs text-muted">画像を確認しながら追加・削除できます</p>
+          <h1 className="text-lg font-bold text-gray-900">{t("title")}</h1>
+          <p className="text-xs text-muted">{t("subtitle")}</p>
         </div>
       </div>
 
-      {/* 撮影画像サムネイル */}
       {images.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1">
           {images.map((img, i) => (
@@ -1776,7 +1775,7 @@ function IngredientConfirmView({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={img.dataUrl}
-                alt={`冷蔵庫 ${i + 1}`}
+                alt={t("fridge_img_alt", { n: i + 1 })}
                 className="w-full h-full object-cover"
               />
             </button>
@@ -1784,14 +1783,13 @@ function IngredientConfirmView({
         </div>
       )}
 
-      {/* 食材タグ */}
       <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
         <p className="text-sm font-semibold text-gray-700 mb-3">
-          認識した食材
-          <span className="ml-2 text-xs font-normal text-muted">（タップで削除）</span>
+          {t("section_title")}
+          <span className="ml-2 text-xs font-normal text-muted">{t("tap_to_remove")}</span>
         </p>
         {items.length === 0 ? (
-          <p className="text-sm text-muted text-center py-6">食材が認識されませんでした</p>
+          <p className="text-sm text-muted text-center py-6">{t("empty")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {items.map((item, i) => (
@@ -1808,16 +1806,15 @@ function IngredientConfirmView({
         )}
       </div>
 
-      {/* 食材追加 */}
       <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
-        <p className="text-sm font-semibold text-gray-700 mb-2">食材を追加</p>
+        <p className="text-sm font-semibold text-gray-700 mb-2">{t("add_section")}</p>
         <div className="flex gap-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addItem()}
-            placeholder="例: 豚バラ肉、卵..."
+            placeholder={t("placeholder")}
             className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary bg-gray-50"
           />
           <button
@@ -1825,21 +1822,19 @@ function IngredientConfirmView({
             disabled={!input.trim()}
             className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition"
           >
-            追加
+            {t("add_btn")}
           </button>
         </div>
       </div>
 
-      {/* 確定ボタン */}
       <button
         onClick={() => onConfirm(items)}
         disabled={items.length === 0}
         className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-green-200 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
       >
-        この食材で献立を作る
+        {t("confirm_btn")}
       </button>
 
-      {/* 画像拡大モーダル */}
       {expandedImg && (
         <div
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
@@ -1848,7 +1843,7 @@ function IngredientConfirmView({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={expandedImg}
-            alt="冷蔵庫の写真"
+            alt={t("expanded_alt")}
             className="max-w-full max-h-full rounded-2xl object-contain"
             onClick={(e) => e.stopPropagation()}
           />
