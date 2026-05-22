@@ -130,8 +130,9 @@
   "loginPrompt": {
     "fav_title": "Save your favorites",
     "fav_body": "Log in to save and manage your favorite meals.",
-    "limit_title": "Free limit reached",
-    "limit_body": "Guests can use Snapmeal {limit} times for free. Log in for unlimited access.",
+    "limit_title": "You've used all free tries",
+    "limit_body": "Log in to keep going.",
+    "limit_benefits": ["Keep getting meal suggestions", "Save and manage your favorites", "Review your past meal history"],
     "cta": "Log in (free)",
     "later": "Later"
   },
