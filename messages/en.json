@@ -138,7 +138,7 @@
   },
   "upgrade": {
     "title": "Monthly limit reached",
-    "body": "5 min/day deciding "what's for dinner?" × 30 days = 2.5 hrs/month.\n¥980/mo (¥33/day) — let AI handle it all.",
+    "body": "5 min/day deciding what's for dinner? × 30 days = 2.5 hrs/month.\n¥980/mo (¥33/day) — let AI handle it all.",
     "free_label": "Free",
     "free_price": "¥0",
     "free_count": "10 uses/month",
