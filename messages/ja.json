@@ -58,6 +58,8 @@
     "request_q": "リクエスト（任意）",
     "request_placeholder": "例: カレーを作りたい、白菜を使って...",
     "analyze": "解析する",
+    "feedback": "フィードバックを送る",
+    "feedback_aria": "フィードバックフォームを開く",
     "hotcook": "自動調理鍋",
     "pan": "フライパン",
     "microwave": "レンジ",

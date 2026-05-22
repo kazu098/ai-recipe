@@ -13,8 +13,13 @@ import {
   type MealPattern,
   type ComponentRole,
 } from "@/lib/meal-patterns";
-import { Settings, ArrowLeft, Camera, Heart, Zap, ChefHat, History, ChevronRight } from "lucide-react";
+import { Settings, ArrowLeft, Camera, Heart, Zap, ChefHat, History, ChevronRight, MessageSquare } from "lucide-react";
 import { trackEvent, EVENTS } from "@/lib/analytics";
+
+const FEEDBACK_FORM_URLS = {
+  ja: process.env.NEXT_PUBLIC_FEEDBACK_FORM_URL_JA ?? "https://forms.gle/Uc8CofTQzeM3steC7",
+  en: process.env.NEXT_PUBLIC_FEEDBACK_FORM_URL_EN ?? "https://forms.gle/4bAHagjPBGp2fQDg6",
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1491,6 +1496,7 @@ function UploadView({
 }) {
   const t = useTranslations("upload");
   const locale = useLocale() as "ja" | "en";
+  const feedbackFormUrl = FEEDBACK_FORM_URLS[locale] ?? FEEDBACK_FORM_URLS.en;
 
   const applianceShortLabels: Record<string, { label: string; icon: string }> = {
     hotcook: { label: t("hotcook"), icon: "🥘" },
@@ -1504,6 +1510,18 @@ function UploadView({
       <div className="bg-primary-dark px-4 py-3 flex items-center justify-between">
         <h1 className="text-xl font-extrabold text-white tracking-tight">Snapmeal</h1>
         <div className="flex items-center gap-1">
+          {feedbackFormUrl && (
+            <a
+              href={feedbackFormUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white"
+              aria-label={t("feedback_aria")}
+              title={t("feedback")}
+            >
+              <MessageSquare size={18} />
+            </a>
+          )}
           <button
             onClick={onOpenHistory}
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition text-white"
