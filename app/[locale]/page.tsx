@@ -204,6 +204,7 @@ export default function HomePage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [confirmedIngredients, setConfirmedIngredients] = useState<string[]>([]);
+  const [showCamera, setShowCamera] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
   const locale = useLocale() as "ja" | "en";
   const tUpload = useTranslations("upload");
@@ -761,6 +762,9 @@ export default function HomePage() {
         fileInputRef={fileInputRef}
         onAddFiles={addFiles}
         onRemoveImage={removeImage}
+        showCamera={showCamera}
+        onOpenCamera={() => setShowCamera(true)}
+        onCloseCamera={() => setShowCamera(false)}
         onToggleTired={() => setTiredMode((v) => !v)}
         onSelectPattern={(p) => {
           setSelectedPattern(p);
@@ -1449,6 +1453,77 @@ function SettingsView({
   );
 }
 
+// ─── Web Camera Modal ─────────────────────────────────────────────────────────
+
+function WebCameraModal({ onCapture, onClose }: { onCapture: (file: File) => void; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: "environment" }, audio: false })
+      .then((stream) => {
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+          setReady(true);
+        }
+      })
+      .catch(() => setError("カメラにアクセスできませんでした"));
+
+    return () => { streamRef.current?.getTracks().forEach((t) => t.stop()); };
+  }, []);
+
+  const capture = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d")?.drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `capture_${Date.now()}.jpg`, { type: "image/jpeg" });
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      onCapture(file);
+    }, "image/jpeg", 0.92);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {error ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
+          <p className="text-white text-center">{error}</p>
+          <button onClick={onClose} className="px-6 py-3 bg-white text-black rounded-2xl font-bold">閉じる</button>
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 relative overflow-hidden">
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline />
+          </div>
+          <canvas ref={canvasRef} className="hidden" />
+          <div className="flex items-center justify-between px-10 py-8 bg-black">
+            <button onClick={onClose} className="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center text-white text-sm">
+              ✕
+            </button>
+            <button
+              onClick={capture}
+              disabled={!ready}
+              className="w-20 h-20 rounded-full bg-white border-4 border-gray-300 disabled:opacity-40 active:scale-95 transition"
+            />
+            <div className="w-14 h-14" />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Upload view ──────────────────────────────────────────────────────────────
 
 function UploadView({
@@ -1462,6 +1537,9 @@ function UploadView({
   fileInputRef,
   onAddFiles,
   onRemoveImage,
+  showCamera,
+  onOpenCamera,
+  onCloseCamera,
   onToggleTired,
   onSelectPattern,
   onToggleRole,
@@ -1482,6 +1560,9 @@ function UploadView({
   fileInputRef: React.RefObject<HTMLInputElement>;
   onAddFiles: (files: FileList | File[]) => void;
   onRemoveImage: (idx: number) => void;
+  showCamera: boolean;
+  onOpenCamera: () => void;
+  onCloseCamera: () => void;
   onToggleTired: () => void;
   onSelectPattern: (p: MealPattern) => void;
   onToggleRole: (role: ComponentRole) => void;
@@ -1532,19 +1613,37 @@ function UploadView({
         </div>
       )}
 
+      {showCamera && (
+        <WebCameraModal
+          onCapture={(file) => { onAddFiles([file]); onCloseCamera(); }}
+          onClose={onCloseCamera}
+        />
+      )}
+
       <div
-        className="border-2 border-dashed border-gray-200 rounded-3xl p-6 mb-4 bg-white cursor-pointer active:bg-gray-50 transition"
+        className="border-2 border-dashed border-gray-200 rounded-3xl p-6 mb-4 bg-white transition"
         onDrop={(e) => { e.preventDefault(); onAddFiles(e.dataTransfer.files); }}
         onDragOver={(e) => e.preventDefault()}
-        onClick={() => images.length < MAX_IMAGES && fileInputRef.current?.click()}
       >
         {images.length === 0 ? (
-          <div className="flex flex-col items-center py-6 gap-3">
+          <div className="flex flex-col items-center py-4 gap-4">
             <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center">
               <Camera size={36} className="text-primary" />
             </div>
-            <p className="font-semibold text-gray-700">{t("photo_cta")}</p>
-            <p className="text-sm text-gray-400">{t("gallery")}</p>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => images.length < MAX_IMAGES && onOpenCamera()}
+                className="flex-1 py-3 rounded-2xl bg-primary text-white font-semibold text-sm flex items-center justify-center gap-2 active:opacity-80 transition"
+              >
+                <Camera size={16} /> カメラ
+              </button>
+              <button
+                onClick={() => images.length < MAX_IMAGES && fileInputRef.current?.click()}
+                className="flex-1 py-3 rounded-2xl bg-gray-100 text-gray-700 font-semibold text-sm active:bg-gray-200 transition"
+              >
+                {t("gallery")}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex flex-wrap gap-3">
@@ -1559,8 +1658,19 @@ function UploadView({
               </div>
             ))}
             {images.length < MAX_IMAGES && (
-              <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex items-center justify-center text-gray-400 text-2xl hover:border-primary hover:text-primary transition">
-                +
+              <div className="flex gap-2 mt-1 w-full">
+                <button
+                  onClick={() => onOpenCamera()}
+                  className="w-20 h-20 border-2 border-dashed border-primary rounded-2xl flex flex-col items-center justify-center text-primary text-xs gap-1 hover:bg-green-50 transition"
+                >
+                  <Camera size={18} />
+                </button>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex items-center justify-center text-gray-400 text-2xl hover:border-primary hover:text-primary transition cursor-pointer"
+                >
+                  +
+                </div>
               </div>
             )}
           </div>
