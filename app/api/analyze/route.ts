@@ -223,7 +223,7 @@ ${ingredientList}
 
 【状況】
 - 食事: ${meal_time}
-- 余力: ${tired_mode ? "疲れている。15分以内・材料少なめで作れる簡単な料理を優先" : "通常"}
+- 余力: ${tired_mode ? "疲れている。調理時間15分以内・食材少なめ・包丁をほぼ使わない・工程が3ステップ以内の料理を優先。電子レンジ・ホットクック・温めるだけ・混ぜるだけ・袋のまま調理など、手間が最小の調理法を選ぶこと" : "通常"}
 - 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
 ${buildHouseholdSection(household_profile)}${hotcookNote}
 
@@ -266,7 +266,7 @@ ${ingredientList}
 
 状況:
 - 食事: ${meal_time}
-- 余力: ${tired_mode ? "疲れている。15分以内・材料少なめで作れる簡単な料理を優先" : "通常"}
+- 余力: ${tired_mode ? "疲れている。調理時間15分以内・食材少なめ・包丁をほぼ使わない・工程が3ステップ以内の料理を優先。電子レンジ・ホットクック・温めるだけ・混ぜるだけ・袋のまま調理など、手間が最小の調理法を選ぶこと" : "通常"}
 - 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
 ${buildHouseholdSection(household_profile)}${hotcookNote}
 

@@ -65,7 +65,8 @@ function buildPrompt(
   locale: string,
   hotcookAdvice: HotcookAdvice | null,
   sideHotcookAdvice: HotcookAdvice | null,
-  soupHotcookAdvice: HotcookAdvice | null
+  soupHotcookAdvice: HotcookAdvice | null,
+  tiredMode: boolean
 ): string {
   const hasHotcook = appliances.includes("hotcook");
   const ngLine = ngFoods ? `使用禁止食材（アレルギー等）: ${ngFoods}` : "";
@@ -130,6 +131,17 @@ function buildPrompt(
     ? `"substitutions": ["seasoningsに含まれる調味料のみ対象。その調味料がない場合の代用方法を1行で（例: みりんがない場合：砂糖小さじ1＋酒大さじ1で代用）", ...]（食材の代用は含めない。代用しにくい・省略不可の調味料は省く。なければ空配列[]）`
     : `"substitutions": []`;
 
+  const tiredInstruction = tiredMode
+    ? `
+【時短・省力モード（重要）】
+ユーザーは疲れています。以下の制約を必ず守ってください:
+- steps は3ステップ以内にまとめること
+- 包丁を使う工程は最小限に（食材は手でちぎる・そのまま使う・袋のまま揉むなど）
+- 細かい下処理（みじん切り・千切りなど）は省略または代替手順で書くこと
+- 「混ぜるだけ」「レンジで加熱するだけ」など手間ゼロに近い表現を積極的に使う
+`
+    : "";
+
   return `${langInstruction}あなたは家庭料理の専門家です。以下の献立の詳細レシピを${servings}人分で作成してください。
 
 【メイン】
@@ -139,7 +151,7 @@ function buildPrompt(
 調理法: ${cookingMethod}
 調理器具: ${appliances.join("、") || "フライパン・鍋"}
 ${ngLine}
-${hotcookGuidance ? `\n${hotcookGuidance}\n` : ""}
+${tiredInstruction}${hotcookGuidance ? `\n${hotcookGuidance}\n` : ""}
 ${hotcookStepInstruction}
 ${sideHotcookGuidance ? `\n【${sideLabel}用ホットクックガイド】\n${sideHotcookGuidance}\n` : ""}
 ${sideHotcookStepInstruction}
@@ -186,6 +198,7 @@ export async function POST(req: NextRequest) {
     side = null,
     soup = null,
     locale = "ja",
+    tiredMode = false,
   } = await req.json();
 
   if (!mealName) {
@@ -253,7 +266,8 @@ export async function POST(req: NextRequest) {
       locale,
       hotcookAdvice,
       sideHotcookAdvice,
-      soupHotcookAdvice
+      soupHotcookAdvice,
+      tiredMode
     );
 
     const result = await model.generateContent(prompt);
