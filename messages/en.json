@@ -94,7 +94,7 @@
   },
   "login": {
     "title": "Snapmeal",
-    "subtitle": "Just snap your fridge. Dinner decided in 30 seconds.",
+    "subtitle": "Just snap your fridge. Your meal plan, decided in 30 seconds.",
     "tab_signin": "Sign in",
     "tab_signup": "Sign up",
     "email_label": "Email address",
@@ -132,13 +132,13 @@
     "fav_body": "Log in to save and manage your favorite meals.",
     "limit_title": "You've used all free tries",
     "limit_body": "Log in to keep going.",
-    "limit_benefits": ["Keep getting meal suggestions", "Save and manage your favorites", "Review your past meal history"],
+    "limit_benefits": ["Keep getting meal suggestions", "Hotcook category & menu guidance", "Auto-list missing ingredients (one-tap copy)", "Manage favorites, history & family notes"],
     "cta": "Log in (free)",
     "later": "Later"
   },
   "upgrade": {
     "title": "Monthly limit reached",
-    "body": "Free plan allows 10 uses per month.\nUpgrade to Pro for 90 uses per month.",
+    "body": "5 min/day deciding "what's for dinner?" × 30 days = 2.5 hrs/month.\n¥980/mo (¥33/day) — let AI handle it all.",
     "free_label": "Free",
     "free_price": "¥0",
     "free_count": "10 uses/month",
@@ -146,6 +146,7 @@
     "pro_price": "¥980",
     "pro_period": "/mo",
     "pro_count": "90 uses/month",
+    "free_features_note": "Favorites, history & family notes are available on the free plan too",
     "cta": "Upgrade to Pro (¥980/month)",
     "redirecting": "Redirecting to Stripe...",
     "wait": "Wait until next month"
