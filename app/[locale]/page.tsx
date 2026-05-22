@@ -2939,7 +2939,7 @@ function UpgradeModal({ onClose, locale }: { onClose: () => void; locale: string
             {t("body")}
           </p>
 
-          <div className="flex gap-3 mb-5">
+          <div className="flex gap-3 mb-4">
             <div className="flex-1 bg-gray-50 rounded-2xl p-4 text-left border-2 border-gray-100">
               <p className="text-xs text-gray-400 font-semibold mb-1">{t("free_label")}</p>
               <p className="text-2xl font-bold text-gray-800 mb-1">{t("free_price")}</p>
@@ -2953,6 +2953,7 @@ function UpgradeModal({ onClose, locale }: { onClose: () => void; locale: string
               <p className="text-sm text-gray-600">{t("pro_count")}</p>
             </div>
           </div>
+          <p className="text-xs text-gray-400 text-center mb-4">{t("free_features_note")}</p>
         </div>
 
         <button

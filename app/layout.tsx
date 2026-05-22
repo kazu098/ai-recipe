@@ -12,7 +12,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Snapmeal",
-  description: "冷蔵庫を撮るだけ。30秒で今夜の夕食が決まる。",
+  description: "冷蔵庫を撮るだけ。30秒で今夜の献立が決まる。",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "Snapmeal",
     title: "Snapmeal",
-    description: "冷蔵庫を撮るだけ。30秒で今夜の夕食が決まる。",
+    description: "冷蔵庫を撮るだけ。30秒で今夜の献立が決まる。",
   },
 };
 
