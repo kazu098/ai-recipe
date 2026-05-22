@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { getLocale } from "next-intl/server";
+import { ServiceWorkerUpdater } from "@/components/ServiceWorkerUpdater";
 import "./globals.css";
 
 const inter = Inter({
@@ -49,7 +50,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = await getLocale();
   return (
     <html lang={locale} className={inter.variable}>
-      <body className="bg-surface min-h-screen font-sans">{children}</body>
+      <body className="bg-surface min-h-screen font-sans">
+        <ServiceWorkerUpdater />
+        {children}
+      </body>
     </html>
   );
 }
