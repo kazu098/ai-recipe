@@ -84,6 +84,17 @@
     "scanning": "Scanning ingredients...",
     "generating": "🍳 Planning your meal..."
   },
+  "favorites": {
+    "title": "Favorites",
+    "login_required": "Log in to see your favorites",
+    "login_btn": "Log in",
+    "empty": "No favorites yet",
+    "remove_aria": "Remove from favorites",
+    "min": " min",
+    "easy": "Easy",
+    "medium": "Medium",
+    "hard": "Advanced"
+  },
   "history": {
     "title": "Meal History",
     "login_required": "Log in to see your history",

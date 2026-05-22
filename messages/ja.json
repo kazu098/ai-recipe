@@ -84,6 +84,17 @@
     "scanning": "食材をスキャン中...",
     "generating": "🍳 献立を考えています..."
   },
+  "favorites": {
+    "title": "お気に入り",
+    "login_required": "お気に入りを見るにはログインが必要です",
+    "login_btn": "ログイン",
+    "empty": "まだお気に入りがありません",
+    "remove_aria": "お気に入りから削除",
+    "min": "分",
+    "easy": "かんたん",
+    "medium": "普通",
+    "hard": "本格"
+  },
   "history": {
     "title": "献立履歴",
     "login_required": "履歴を見るにはログインが必要です",
