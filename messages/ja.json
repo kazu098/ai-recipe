@@ -39,7 +39,18 @@
     "hotcook": "自動調理鍋",
     "pan": "フライパン・鍋",
     "microwave": "電子レンジ",
-    "oven": "オーブン・グリル"
+    "oven": "オーブン・グリル",
+    "has_children_q": "お子さまはいますか？",
+    "children_yes": "いる",
+    "children_no": "いない",
+    "children_age_placeholder": "年齢メモ（例：3歳・7歳）",
+    "taste_pref_q": "味の好み",
+    "taste_light": "薄味",
+    "taste_normal": "普通",
+    "taste_rich": "濃いめ",
+    "cooking_policy_q": "料理方針メモ",
+    "cooking_policy_hint": "例：時短優先、辛味なし、魚料理が得意",
+    "cooking_policy_placeholder": "自由にメモしてください"
   },
   "upload": {
     "error": "エラーが発生しました",
@@ -65,9 +76,35 @@
     "microwave": "レンジ",
     "oven": "オーブン"
   },
+  "recognizing": {
+    "title": "食材を認識中...",
+    "detail": "冷蔵庫の画像を解析しています"
+  },
   "analyzing": {
     "scanning": "食材をスキャン中...",
     "generating": "🍳 献立を考えています..."
+  },
+  "history": {
+    "title": "献立履歴",
+    "login_required": "履歴を見るにはログインが必要です",
+    "login_btn": "ログイン",
+    "empty": "まだ履歴がありません",
+    "no_meal": "献立未選択",
+    "quick_badge": "時短",
+    "cooked_badge": "作った"
+  },
+  "hotcook": {
+    "menu_title": "メニュー選択",
+    "eg_prefix": "例：",
+    "eg_suffix": "など",
+    "manual_note": "※機種によって表示が違う場合は、",
+    "manual_also": "でも作れます。",
+    "guide_title": "ホットクック調理ガイド",
+    "device_op": "📱 実機での操作",
+    "auto_menus": "💡 この自動メニューが使えます",
+    "manual_setting": "🛠 自動メニューがない場合の手動設定",
+    "after_boil": "沸とう後",
+    "cooking_tips": "⚠ 調理ポイント"
   },
   "result": {
     "title": "今夜の献立",
@@ -92,7 +129,17 @@
     "steps": "作り方",
     "thinking": "レシピを考えています...",
     "made_it": "👍 作った！",
-    "safety": "⚠️ 食材の鮮度・賞味期限はご自身でご確認ください"
+    "safety": "⚠️ 食材の鮮度・賞味期限はご自身でご確認ください",
+    "substitutions": "🔄 代用メモ",
+    "tips_title": "💡 仕上げのコツ",
+    "cooked": "作った",
+    "not_cooked": "作らなかった",
+    "family_liked": "家族がよく食べた",
+    "family_disliked": "あまり食べなかった",
+    "reaction_placeholder": "家族の反応メモ（任意）",
+    "next_time_placeholder": "次回へのメモ（例：塩を少し減らす）",
+    "saved": "保存しました",
+    "retake": "もう一度撮る"
   },
   "login": {
     "title": "Snapmeal",

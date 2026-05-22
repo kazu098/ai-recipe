@@ -39,7 +39,18 @@
     "hotcook": "Smart Cooker",
     "pan": "Pan & Pot",
     "microwave": "Microwave",
-    "oven": "Oven & Grill"
+    "oven": "Oven & Grill",
+    "has_children_q": "Do you have children?",
+    "children_yes": "Yes",
+    "children_no": "No",
+    "children_age_placeholder": "Age note (e.g. 3yo, 7yo)",
+    "taste_pref_q": "Taste preference",
+    "taste_light": "Light",
+    "taste_normal": "Normal",
+    "taste_rich": "Bold",
+    "cooking_policy_q": "Cooking notes",
+    "cooking_policy_hint": "e.g. quick meals, no spice, good at fish",
+    "cooking_policy_placeholder": "Free notes"
   },
   "upload": {
     "error": "Something went wrong",
@@ -65,9 +76,35 @@
     "microwave": "Microwave",
     "oven": "Oven"
   },
+  "recognizing": {
+    "title": "Recognizing ingredients...",
+    "detail": "Analyzing your fridge photos"
+  },
   "analyzing": {
     "scanning": "Scanning ingredients...",
     "generating": "🍳 Planning your meal..."
+  },
+  "history": {
+    "title": "Meal History",
+    "login_required": "Log in to see your history",
+    "login_btn": "Log in",
+    "empty": "No history yet",
+    "no_meal": "No meal selected",
+    "quick_badge": "Quick",
+    "cooked_badge": "Made it"
+  },
+  "hotcook": {
+    "menu_title": "Menu Selection",
+    "eg_prefix": "e.g. ",
+    "eg_suffix": "",
+    "manual_note": "※If your model looks different,",
+    "manual_also": "also works.",
+    "guide_title": "Smart Cooker Guide",
+    "device_op": "📱 Device operation",
+    "auto_menus": "💡 Available auto menus",
+    "manual_setting": "🛠 Manual setting (if no auto menu)",
+    "after_boil": "After boiling",
+    "cooking_tips": "⚠ Cooking tips"
   },
   "result": {
     "title": "Tonight's Meal",
@@ -92,7 +129,17 @@
     "steps": "Instructions",
     "thinking": "Thinking about your recipe...",
     "made_it": "👍 Made it!",
-    "safety": "⚠️ Please check freshness and expiry dates yourself"
+    "safety": "⚠️ Please check freshness and expiry dates yourself",
+    "substitutions": "🔄 Substitutions",
+    "tips_title": "💡 Finishing tips",
+    "cooked": "Made it",
+    "not_cooked": "Didn't make it",
+    "family_liked": "Family loved it",
+    "family_disliked": "Family didn't eat much",
+    "reaction_placeholder": "Family reaction notes (optional)",
+    "next_time_placeholder": "Notes for next time (e.g. less salt)",
+    "saved": "Saved",
+    "retake": "Take another photo"
   },
   "login": {
     "title": "Snapmeal",
