@@ -533,7 +533,7 @@ export default function HomePage() {
       const res = await fetch("/api/recognize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageDataUrls: images.map((i) => i.dataUrl) }),
+        body: JSON.stringify({ imageDataUrls: images.map((i) => i.dataUrl), locale }),
       });
       const json = await res.json() as { ingredients?: string[]; error?: string };
       if (!res.ok || !json.ingredients) {

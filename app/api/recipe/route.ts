@@ -123,16 +123,25 @@ function buildPrompt(
   const sideHotcookStepInstruction = buildSubDishHotcookInstruction(sideLabel, "side_recipe", sideHotcookAdvice, hasHotcook && !!side);
   const soupHotcookStepInstruction = buildSubDishHotcookInstruction(soupLabel, "soup_recipe", soupHotcookAdvice, hasHotcook && !!soup);
 
-  const langInstruction = locale === "en"
-    ? "IMPORTANT: Write all text values in English (ingredient names, amounts, steps, tips, etc.).\n\n"
-    : "";
+  const isEn = locale === "en";
 
   const substitutionsInstruction = hasHotcook
-    ? `"substitutions": ["seasoningsに含まれる調味料のみ対象。その調味料がない場合の代用方法を1行で（例: みりんがない場合：砂糖小さじ1＋酒大さじ1で代用）", ...]（食材の代用は含めない。代用しにくい・省略不可の調味料は省く。なければ空配列[]）`
+    ? isEn
+      ? `"substitutions": ["Condiment substitutions only (not ingredients). One line each, e.g. 'No mirin: use 1 tsp sugar + 1 tbsp cooking sake'. Omit if no good substitute. Empty array [] if none."]`
+      : `"substitutions": ["seasoningsに含まれる調味料のみ対象。その調味料がない場合の代用方法を1行で（例: みりんがない場合：砂糖小さじ1＋酒大さじ1で代用）", ...]（食材の代用は含めない。代用しにくい・省略不可の調味料は省く。なければ空配列[]）`
     : `"substitutions": []`;
 
   const tiredInstruction = tiredMode
-    ? `
+    ? isEn
+      ? `
+[Quick Mode — Important]
+The user is tired. Follow these constraints:
+- Keep steps to 3 or fewer
+- Minimize knife work (tear by hand, use as-is, knead in bag, etc.)
+- Skip detailed prep (fine chopping, julienning) or use alternatives
+- Use phrases like "just mix" or "microwave only" to emphasize minimal effort
+`
+      : `
 【時短・省力モード（重要）】
 ユーザーは疲れています。以下の制約を必ず守ってください:
 - steps は3ステップ以内にまとめること
@@ -142,7 +151,54 @@ function buildPrompt(
 `
     : "";
 
-  return `${langInstruction}あなたは家庭料理の専門家です。以下の献立の詳細レシピを${servings}人分で作成してください。
+  if (isEn) {
+    const appliancesStr = appliances.join(", ") || "frying pan / pot";
+    const ngLineEn = ngFoods ? `Forbidden ingredients (allergies etc.): ${ngFoods}` : "";
+    const subDishRequestEn = [
+      side ? `[${sideLabel}] Also generate a simple recipe for ${side.name}${applianceNote} (using: ${side.matched_ingredients.join(", ") || "as needed"}).` : "",
+      soup ? `[${soupLabel}] Also generate a simple recipe for ${soup.name}${applianceNote} (using: ${soup.matched_ingredients.join(", ") || "as needed"}).` : "",
+    ].filter(Boolean).join("\n");
+
+    return `You are a home cooking expert. Create a detailed recipe for ${servings} servings of the following dish.
+
+[Main dish]
+Name: ${mealName}
+Main ingredients: ${matchedIngredients.join(", ") || "as needed"}
+Genre: ${genre}
+Cooking method: ${cookingMethod}
+Appliance: ${appliancesStr}
+${ngLineEn}
+${tiredInstruction}${hotcookGuidance ? `\n${hotcookGuidance}\n` : ""}
+${hotcookStepInstruction}
+${sideHotcookGuidance ? `\n[${sideLabel} Hotcook Guide]\n${sideHotcookGuidance}\n` : ""}
+${sideHotcookStepInstruction}
+${soupHotcookGuidance ? `\n[${soupLabel} Hotcook Guide]\n${soupHotcookGuidance}\n` : ""}
+${soupHotcookStepInstruction}
+${subDishRequestEn}
+
+Output JSON only (no code block, no explanation):
+{
+  "title": "${mealName}",
+  "servings": ${servings},
+  "ingredients": [
+    {"name": "ingredient name", "amount": "amount for ${servings} servings (e.g. 300g, 2 pieces)"}
+  ],
+  "seasonings": [
+    {"name": "seasoning name", "amount": "amount (e.g. 2 tbsp, 1 tsp)"}
+  ],
+  "steps": [
+    "Step 1 (specific)",
+    "Step 2"
+  ],
+  ${substitutionsInstruction},
+  "tips": "Finishing tips or key points (1-2 sentences, or empty string if none)"${subDishSchema ? `,\n${subDishSchema}` : ""}
+}
+
+List non-condiment ingredients in "ingredients" and condiments/sauces/oils in "seasonings".
+Sub-dish recipes should be concise with 3-4 steps.`;
+  }
+
+  return `あなたは家庭料理の専門家です。以下の献立の詳細レシピを${servings}人分で作成してください。
 
 【メイン】
 料理名: ${mealName}

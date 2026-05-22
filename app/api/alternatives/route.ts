@@ -5,10 +5,16 @@ import { getAuthUserId, saveMealHistory } from "@/lib/supabase/db";
 
 type ActiveComp = { role: string; label: string };
 
-const ALWAYS_AVAILABLE_SEASONINGS = `
+const ALWAYS_AVAILABLE_SEASONINGS_JA = `
 醤油・塩・胡椒・砂糖・みりん・料理酒・酢・サラダ油・ごま油・バター・マヨネーズ・ケチャップ
 味噌・だし（和風・コンソメ・鶏がら）・小麦粉・片栗粉・オリーブオイル・めんつゆ・ポン酢
 ウスターソース・ソース・豆板醤・オイスターソース・生姜（チューブ）・にんにく（チューブ）
+`.trim();
+
+const ALWAYS_AVAILABLE_SEASONINGS_EN = `
+soy sauce, salt, pepper, sugar, mirin, cooking sake, vinegar, vegetable oil, sesame oil, butter, mayonnaise, ketchup
+miso, dashi/broth (Japanese, consommé, chicken), flour, cornstarch, olive oil, mentsuyu, ponzu
+Worcestershire sauce, doubanjiang, oyster sauce, ginger (tube), garlic (tube)
 `.trim();
 
 function buildSubDishFields(components: ActiveComp[]): string {
@@ -34,6 +40,7 @@ function buildPrompt(
   has_hotcook: boolean,
   user_request: string
 ): string {
+  const isEn = locale === "en";
   const [type2, type3] = tired_mode
     ? ["no_shopping", "best"]
     : ["quick", "no_shopping"];
@@ -41,22 +48,107 @@ function buildPrompt(
   const mainComp = meal_components.find((c) => c.role === "main");
   const sideComp = meal_components.find((c) => c.role === "side");
   const soupComp = meal_components.find((c) => c.role === "soup");
-  const mainLabel = mainComp?.label ?? "メイン";
+  const mainLabel = mainComp?.label ?? (isEn ? "Main dish" : "メイン");
 
+  const hotcookNote = has_hotcook
+    ? isEn
+      ? "- Appliance: Hotcook available. Prefer waterless cooking, braises, soups, and steamed dishes."
+      : "- 調理器具: ホットクックあり。無水調理・煮物・スープ・蒸し物を優先"
+    : "";
+
+  const hasUserRequest = user_request.trim().length > 0;
+  const seasonings = isEn ? ALWAYS_AVAILABLE_SEASONINGS_EN : ALWAYS_AVAILABLE_SEASONINGS_JA;
+
+  if (isEn) {
+    const componentNote = [
+      sideComp ? `${sideComp.label} (side dish)` : "",
+      soupComp ? `${soupComp.label} (must be a liquid dish: soup, broth, etc.)` : "",
+    ].filter(Boolean).join(" + ");
+
+    const missingRule = hasUserRequest
+      ? `- If a requested ingredient is not in the fridge, add it to missing_ingredients\n- matched_ingredients must only include items from the fridge list`
+      : `- Prioritize dishes using only current fridge items and pantry staples\n- [STRICT] Add any ingredient needed but not in the fridge or pantry to missing_ingredients\n- [STRICT] Only set missing_ingredients to [] after confirming no ingredient is missing`;
+
+    const userRequestBlock = hasUserRequest
+      ? `\n==========================================
+[TOP PRIORITY — MUST FOLLOW]
+User request: "${user_request.trim()}"
+==========================================
+
+- If ingredients are specified (e.g. "I want to use cabbage and pork") → both suggestions must feature those ingredients as the star.
+- If a dish is specified (e.g. "I want curry") → suggest 2 variations of that dish (e.g. Japanese curry, dry curry).
+- If requested ingredients are not in the fridge, add them to missing_ingredients.
+`
+      : "";
+
+    const reminderBlock = hasUserRequest
+      ? `\n==========================================
+🔴 Reminder:
+MUST follow user request "${user_request.trim()}".
+BOTH suggestions must feature the requested ingredient/dish as the star.
+==========================================
+`
+      : "";
+
+    return `You are a home cooking expert.
+${userRequestBlock}
+[Pantry staples (always available)]
+${seasonings}
+
+Fridge contents:
+${ingredients.join(", ")}
+
+Meal structure: ${mainLabel}${componentNote ? ` + ${componentNote}` : " only"}
+${hotcookNote}
+
+"${meal_1_name}" (${meal_1_type}) has already been suggested.
+Suggest 2 more ${mainLabel} dishes using the above ingredients${hasUserRequest ? " and the user request" : " and pantry staples"}.
+
+Requirements:
+- meal_2 type: "${type2}"
+- meal_3 type: "${type3}"
+- Choose a different genre, main ingredient, and cooking method from "${meal_1_name}"
+
+[Required rules]
+${missingRule}
+${soupComp ? "- soup must be a liquid dish (miso soup, broth, stew). Never a salad or stir-fry." : ""}
+${reminderBlock}
+Output JSON only (no code block, no explanation):
+{
+  "meals": [
+    {
+      "type": "${type2}",
+      "name": "${hasUserRequest ? "Dish name featuring requested ingredient/dish" : mainLabel + " dish name"}",
+      "reason": "Why this dish (1 sentence, under 30 words)",
+      "time_minutes": number,
+      "difficulty": "easy|medium|hard",
+      "matched_ingredients": ["fridge items used in this dish"],
+      "missing_ingredients": ${hasUserRequest ? `["requested items not in fridge + other needed items"]` : "[]"},
+      "genre": "Japanese|Western|Chinese|Asian",
+      "main_ingredient": "meat|fish|egg|vegetable|noodle|rice",
+      "cooking_method": "stir-fry|simmer|grill|fry|steam|salad"${buildSubDishFields(meal_components)}
+    },
+    {
+      "type": "${type3}",
+      "name": "${hasUserRequest ? "Dish name featuring requested ingredient/dish" : mainLabel + " dish name"}",
+      "reason": "Why this dish (1 sentence, under 30 words)",
+      "time_minutes": number,
+      "difficulty": "easy|medium|hard",
+      "matched_ingredients": [...],
+      "missing_ingredients": ${hasUserRequest ? `[...]` : "[]"},
+      "genre": "Japanese|Western|Chinese|Asian",
+      "main_ingredient": "meat|fish|egg|vegetable|noodle|rice",
+      "cooking_method": "stir-fry|simmer|grill|fry|steam|salad"${buildSubDishFields(meal_components)}
+    }
+  ]
+}`;
+  }
+
+  // Japanese prompt
   const componentNote = [
     sideComp ? `${sideComp.label}（小鉢・副菜）` : "",
     soupComp ? `${soupComp.label}（味噌汁・スープ・汁物など液体の料理のみ）` : "",
   ].filter(Boolean).join("・");
-
-  const hotcookNote = has_hotcook
-    ? `- 調理器具: ホットクックあり。無水調理・煮物・スープ・蒸し物を優先`
-    : "";
-
-  const hasUserRequest = user_request.trim().length > 0;
-
-  const langInstruction = locale === "en"
-    ? "IMPORTANT: Write all text values in English (dish names, reasons, ingredient names, genre, etc.).\n\n"
-    : "";
 
   const missingIngredientsRule = hasUserRequest
     ? `- リクエスト食材が冷蔵庫にない場合は必ず missing_ingredients に追加すること
@@ -86,11 +178,11 @@ function buildPrompt(
 `
     : "";
 
-  return `${langInstruction}あなたは家庭料理の専門家です。
+  return `あなたは家庭料理の専門家です。
 ${userRequestBlock}
 【絶対条件】
 以下の調味料・基本食材は常に自宅にあるものとして扱ってください:
-${ALWAYS_AVAILABLE_SEASONINGS}
+${seasonings}
 
 冷蔵庫にある食材:
 ${ingredients.join("、")}
