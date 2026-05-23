@@ -188,6 +188,75 @@ function buildFavoritesSection(favorites: string[], disliked: string[], locale: 
   return parts.map((p) => `\n${p}\n`).join("");
 }
 
+function buildCuisineBlock(cuisine_pattern: string, locale: string): string {
+  const isEn = locale === "en";
+
+  const blocks: Record<string, { en: string; ja: string }> = {
+    japanese: {
+      en: `[Cuisine Style: Japanese]
+Suggest authentic Japanese home-cooking dishes.
+Examples: miso soup, tamagoyaki, yakitori, karaage, gyoza, nikujaga, oyakodon, onigiri, soba, udon, teriyaki chicken, chawanmushi, tsukune, agedashi tofu.
+Keep authentic Japanese flavors (dashi, miso, soy, mirin).`,
+      ja: `【ジャンル：和食】
+本格的な日本の家庭料理を提案してください。
+例：味噌汁、卵焼き、焼き鳥、唐揚げ、餃子、肉じゃが、親子丼、おにぎり、そば、うどん、照り焼きチキン、茶碗蒸し。
+だし・味噌・醤油・みりんを活かした和の味付けを基本とすること。`,
+    },
+    western: {
+      en: `[Cuisine Style: Western (American / European)]
+Suggest dishes that are genuinely common in American or European households.
+Examples: pasta (carbonara, bolognese, aglio e olio), grilled chicken, tacos, burgers, Caesar salad, French onion soup, roast vegetables, frittata, risotto, quiche, steak, salmon with lemon butter, minestrone.
+Do NOT suggest Japanese-style "western" food (no Hamburg steak / ハンバーグ, no Japanese cream stew, no korokke).`,
+      ja: `【ジャンル：洋食（欧米スタイル）】
+アメリカ・ヨーロッパの家庭で実際によく作られる料理を提案してください。
+例：パスタ（カルボナーラ・ボロネーゼ・アーリオオーリオ）、グリルチキン、タコス、バーガー、シーザーサラダ、フレンチオニオンスープ、ローストベジタブル、フリッタータ、リゾット、キッシュ、ステーキ、レモンバターソーモン、ミネストローネ。
+日本化した洋食（ハンバーグ、コロッケ、クリームシチューなど）は避け、欧米本来のスタイルで提案すること。`,
+    },
+    korean: {
+      en: `[Cuisine Style: Korean]
+Suggest authentic Korean home-cooking dishes.
+Examples: bibimbap, bulgogi, kimchi jjigae, doenjang jjigae, japchae, tteokbokki, dakgalbi, samgyeopsal, sundubu jjigae, kongnamul, pajeon, galbi, bossam, naengmyeon.
+Use authentic Korean flavors (gochujang, doenjang, sesame oil, gochugaru, garlic).`,
+      ja: `【ジャンル：韓国料理】
+本格的な韓国の家庭料理を提案してください。
+例：ビビンバ、プルコギ、キムチチゲ、テンジャンチゲ、チャプチェ、トッポッキ、タッカルビ、サムギョプサル、スンドゥブチゲ、コンナムル、チヂミ、カルビ、ポッサム、冷麺。
+コチュジャン・テンジャン・ごま油・コチュカル・にんにくを活かした韓国らしい味付けにすること。`,
+    },
+    chinese: {
+      en: `[Cuisine Style: Chinese]
+Suggest authentic Chinese home-cooking dishes.
+Examples: mapo tofu, kung pao chicken, sweet and sour pork, fried rice, lo mein, dumplings (jiaozi), hot and sour soup, stir-fried green beans, steamed fish, braised pork belly (hong shao rou), dan dan noodles, eggplant with garlic sauce, egg drop soup.
+Use authentic Chinese flavors (soy sauce, oyster sauce, Shaoxing wine, five spice, bean paste).`,
+      ja: `【ジャンル：中華料理】
+本格的な中国の家庭料理を提案してください。
+例：麻婆豆腐、宮保鶏丁（カンパオチキン）、酢豚、チャーハン、焼きそば、餃子、酸辣湯、ドライストリングビーンズ、蒸し魚、豚の角煮、担々麺、茄子の味噌炒め、卵スープ。
+醤油・オイスターソース・紹興酒・五香粉・豆板醤を活かした中華らしい味付けにすること。`,
+    },
+    ethnic: {
+      en: `[Cuisine Style: Ethnic / Global]
+Suggest dishes from global cuisines: Thai, Indian, Mexican, Vietnamese, Middle Eastern, etc.
+Examples: Thai green curry, pad thai, chicken tikka masala, dal, tacos al pastor, pho, spring rolls, shakshuka, hummus with pita, falafel, nasi goreng, tom yum soup.
+Embrace bold spices and authentic flavor profiles from the chosen regional cuisine.`,
+      ja: `【ジャンル：エスニック料理】
+タイ・インド・メキシコ・ベトナム・中東などのグローバルな料理を提案してください。
+例：グリーンカレー、パッタイ、チキンティッカマサラ、ダル、タコスアルパストール、フォー、春巻き、シャクシュカ、フムス、ファラフェル、ナシゴレン、トムヤムスープ。
+各地域の本格的なスパイスとフレーバーを活かした料理にすること。`,
+    },
+    oneplate: {
+      en: `[Cuisine Style: One Plate]
+Suggest a satisfying single-plate meal. Can be any cuisine — focus on balance and completeness.
+Examples: grain bowls, Buddha bowls, pasta dishes, rice bowls, noodle dishes, wraps, salad plates with protein.`,
+      ja: `【ジャンル：ワンプレート】
+バランスの取れた一皿料理を提案してください。ジャンルは問いません。
+例：グレインボウル、仏陀ボウル、パスタ、丼もの、麺料理、ラップ、タンパク質入りサラダプレート。`,
+    },
+  };
+
+  const block = blocks[cuisine_pattern];
+  if (!block) return "";
+  return "\n" + (isEn ? block.en : block.ja) + "\n";
+}
+
 function buildPrompt(
   tired_mode: boolean,
   meal_time: string,
@@ -199,7 +268,8 @@ function buildPrompt(
   ingredients: string[],
   household_profile: HouseholdProfile = {},
   favorite_meals: string[] = [],
-  disliked_meals: string[] = []
+  disliked_meals: string[] = [],
+  cuisine_pattern = "japanese"
 ): string {
   const isEn = locale === "en";
   const mainComp = meal_components.find((c) => c.role === "main");
@@ -338,8 +408,7 @@ Step 4: meal.missing_ingredients — include ALL of:
 - Meal: ${meal_time}
 - Energy: ${energyNote}
 - Meal structure: ${mainLabel}${componentNote ? ` + ${componentNote}` : " only"}
-${buildHouseholdSection(household_profile, locale)}${hotcookNote}
-
+${buildHouseholdSection(household_profile, locale)}${hotcookNote}${buildCuisineBlock(cuisine_pattern, locale)}
 [Pantry staples (always available at home)]
 ${seasonings}
 ${buildHistorySection(history, locale)}${buildFavoritesSection(favorite_meals, disliked_meals, locale)}
@@ -381,8 +450,7 @@ Situation:
 - Meal: ${meal_time}
 - Energy: ${energyNote}
 - Meal structure: ${mainLabel}${componentNote ? ` + ${componentNote}` : " only"}
-${buildHouseholdSection(household_profile, locale)}${hotcookNote}
-
+${buildHouseholdSection(household_profile, locale)}${hotcookNote}${buildCuisineBlock(cuisine_pattern, locale)}
 [Pantry staples (always available at home)]
 ${seasonings}
 ${buildHistorySection(history, locale)}${buildFavoritesSection(favorite_meals, disliked_meals, locale)}
@@ -449,8 +517,7 @@ ${ingredientList}
 - 食事: ${meal_time}
 - 余力: ${tired_mode ? "疲れている。調理時間15分以内・食材少なめ・包丁をほぼ使わない・工程が3ステップ以内の料理を優先。電子レンジ・ホットクック・温めるだけ・混ぜるだけ・袋のまま調理など、手間が最小の調理法を選ぶこと" : "通常"}
 - 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
-${buildHouseholdSection(household_profile, locale)}${hotcookNote}
-
+${buildHouseholdSection(household_profile, locale)}${hotcookNote}${buildCuisineBlock(cuisine_pattern, locale)}
 【常備調味料・基本食材（常に自宅にあるものとして扱う）】
 ${seasonings}
 ${buildHistorySection(history, locale)}${buildFavoritesSection(favorite_meals, disliked_meals, locale)}
@@ -492,8 +559,7 @@ ${ingredientList}
 - 食事: ${meal_time}
 - 余力: ${tired_mode ? "疲れている。調理時間15分以内・食材少なめ・包丁をほぼ使わない・工程が3ステップ以内の料理を優先。電子レンジ・ホットクック・温めるだけ・混ぜるだけ・袋のまま調理など、手間が最小の調理法を選ぶこと" : "通常"}
 - 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
-${buildHouseholdSection(household_profile, locale)}${hotcookNote}
-
+${buildHouseholdSection(household_profile, locale)}${hotcookNote}${buildCuisineBlock(cuisine_pattern, locale)}
 【常備調味料・基本食材（常に自宅にあるものとして扱う）】
 ${seasonings}
 ${buildHistorySection(history, locale)}${buildFavoritesSection(favorite_meals, disliked_meals, locale)}
@@ -594,6 +660,7 @@ export async function POST(req: NextRequest) {
     tired_mode = false,
     meal_time = "夕食",
     meal_components = [{ role: "main", label: "メイン" }],
+    cuisine_pattern = "japanese",
     locale = "ja",
     appliances = [],
     user_request = "",
@@ -668,7 +735,7 @@ export async function POST(req: NextRequest) {
         const prompt = buildPrompt(
           tired_mode, meal_time, history, meal_components as ActiveComp[],
           locale, has_hotcook, user_request, ingredients, household_profile as HouseholdProfile,
-          favorite_meals as string[], disliked_meals as string[]
+          favorite_meals as string[], disliked_meals as string[], cuisine_pattern as string
         );
         if (process.env.GEMINI_API_KEY) {
           try {
