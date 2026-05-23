@@ -1105,12 +1105,17 @@ function HistoryView({
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-gray-400 mb-1">{formatDate(session.created_at)}</p>
                       {selected ? (
-                        <p className="font-semibold text-gray-800 text-sm truncate">{selected.meal_name}</p>
+                        <>
+                          <p className="font-semibold text-gray-800 text-sm truncate">{selected.meal_name}</p>
+                          {selected.genre && (
+                            <span className="inline-block text-xs bg-green-50 text-primary px-2 py-0.5 rounded-full font-semibold mt-1">{selected.genre}</span>
+                          )}
+                        </>
                       ) : (
                         <p className="text-gray-400 text-sm italic">{t("no_meal")}</p>
                       )}
                       {ingredientPreview && (
-                        <p className="text-xs text-gray-400 mt-1 truncate">{ingredientPreview}{(session.detected_ingredients?.length ?? 0) > 4 ? " …" : ""}</p>
+                        <p className="text-xs text-gray-400 mt-1.5 truncate">{ingredientPreview}{(session.detected_ingredients?.length ?? 0) > 4 ? " …" : ""}</p>
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
