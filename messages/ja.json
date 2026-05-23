@@ -156,7 +156,11 @@
     "reaction_placeholder": "家族の反応メモ（任意）",
     "next_time_placeholder": "次回へのメモ（例：塩を少し減らす）",
     "saved": "保存しました",
-    "retake": "もう一度撮る"
+    "retake": "もう一度撮る",
+    "share_label": "シェアする",
+    "share_x": "Xでシェア",
+    "share_other": "その他のアプリ",
+    "share_text": "Snapmealが冷蔵庫の食材から「{meal}」を提案してくれた🍳 #Snapmeal"
   },
   "login": {
     "title": "Snapmeal",

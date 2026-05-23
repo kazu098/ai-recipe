@@ -59,4 +59,5 @@ export const EVENTS = {
   LOGIN_COMPLETED:     "login_completed",
   TIRED_MODE_TOGGLED:  "tired_mode_toggled",
   PATTERN_SELECTED:    "pattern_selected",
+  SHARE_RECIPE:        "share_recipe",
 } as const;

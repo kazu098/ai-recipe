@@ -156,7 +156,11 @@
     "reaction_placeholder": "Family reaction notes (optional)",
     "next_time_placeholder": "Notes for next time (e.g. less salt)",
     "saved": "Saved",
-    "retake": "Take another photo"
+    "retake": "Take another photo",
+    "share_label": "Share",
+    "share_x": "Share on X",
+    "share_other": "More apps",
+    "share_text": "Snapmeal suggested \"{meal}\" from my fridge ingredients 🍳 #Snapmeal"
   },
   "login": {
     "title": "Snapmeal",
