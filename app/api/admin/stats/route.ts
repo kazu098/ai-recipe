@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const [eventsRes, dailyRes, genreRes, patternRes, usersRes] = await Promise.all([
+  const [eventsRes, dailyRes, genreRes, patternRes, usersRes, repeatRes] = await Promise.all([
     // ① イベント別合計（管理者自身を除外）
     admin.rpc("admin_event_counts", { p_since: since, p_exclude_user_id: excludeUserId }),
 
@@ -55,6 +55,9 @@ export async function GET(req: NextRequest) {
 
     // ⑤ ユーザー数（管理者自身を除外）
     admin.from("profiles").select("plan", { count: "exact" }).neq("id", excludeUserId),
+
+    // ⑥ 7日以内リピート率（ログイン済みユーザーのみ）
+    admin.rpc("admin_repeat_rate", { p_since: since, p_exclude_user_id: excludeUserId }),
   ]);
 
   // ジャンル集計
@@ -78,6 +81,8 @@ export async function GET(req: NextRequest) {
     planMap[p] = (planMap[p] ?? 0) + 1;
   }
 
+  const repeatData = (repeatRes.data as { total_users: number; repeat_users: number; repeat_rate: number }[] | null)?.[0];
+
   return NextResponse.json({
     days,
     event_counts: eventsRes.data ?? [],
@@ -91,6 +96,11 @@ export async function GET(req: NextRequest) {
     user_stats: {
       total: usersRes.count ?? 0,
       by_plan: planMap,
+    },
+    repeat_stats: {
+      total_users: repeatData?.total_users ?? 0,
+      repeat_users: repeatData?.repeat_users ?? 0,
+      repeat_rate: repeatData?.repeat_rate ?? 0,
     },
   });
 }

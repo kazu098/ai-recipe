@@ -14,6 +14,7 @@ type Stats = {
   genre_breakdown: BreakdownItem[];
   pattern_breakdown: BreakdownItem[];
   user_stats: { total: number; by_plan: Record<string, number> };
+  repeat_stats: { total_users: number; repeat_users: number; repeat_rate: number };
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -21,6 +22,7 @@ type Stats = {
 const EVENT_LABELS: Record<string, string> = {
   photo_uploaded:      "📷 写真アップロード",
   analysis_started:    "🔍 解析開始",
+  analysis_error:      "❌ 解析エラー",
   meal_suggested:      "🍽 献立提案",
   alternative_viewed:  "👆 代替案閲覧",
   meal_selected:       "✅ 献立選択",
@@ -170,6 +172,28 @@ export default function AdminPage() {
                 label="ゲスト上限到達"
                 value={ec("guest_limit_hit")}
                 sub={`${pct(ec("guest_limit_hit"), ec("analysis_started"))} of 解析`}
+              />
+            </div>
+          </section>
+
+          {/* エンゲージメント指標 */}
+          <section>
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">エンゲージメント</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <MetricCard
+                label="7日リピート率"
+                value={`${stats.repeat_stats.repeat_rate}%`}
+                sub={`${stats.repeat_stats.repeat_users} / ${stats.repeat_stats.total_users} ユーザー`}
+              />
+              <MetricCard
+                label="解析エラー率"
+                value={`${pct(ec("analysis_error"), ec("analysis_started"))}`}
+                sub={`${ec("analysis_error")} エラー / ${ec("analysis_started")} 解析`}
+              />
+              <MetricCard
+                label="代替案閲覧率"
+                value={pct(ec("alternative_viewed"), ec("meal_suggested"))}
+                sub={`${ec("alternative_viewed")} / ${ec("meal_suggested")} 献立提案`}
               />
             </div>
           </section>
