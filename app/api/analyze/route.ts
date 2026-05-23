@@ -830,11 +830,20 @@ export async function POST(req: NextRequest) {
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!
           );
-          await adminDb.from("analytics_events").insert({
-            user_id: userId ?? null,
-            event_name: "analysis_error",
-            properties: { error: err instanceof Error ? err.message : String(err) },
-          });
+          // 管理者自身のエラーは記録しない
+          const isAdmin = userId && await adminDb
+            .from("profiles")
+            .select("email")
+            .eq("id", userId)
+            .single()
+            .then(({ data }) => data?.email === process.env.ADMIN_EMAIL);
+          if (!isAdmin) {
+            await adminDb.from("analytics_events").insert({
+              user_id: userId ?? null,
+              event_name: "analysis_error",
+              properties: { error: err instanceof Error ? err.message : String(err) },
+            });
+          }
         } catch {
           // analytics failure は無視
         }
