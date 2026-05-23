@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
   const { data: { user } } = await supabase.auth.getUser();
-  if (!isAdmin(user?.email)) {
+  if (!isAdmin(user?.email) || !user) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
