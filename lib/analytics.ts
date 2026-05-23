@@ -32,6 +32,11 @@ export async function trackEvent(
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
+
+    // 管理者自身のイベントは記録しない
+    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+    if (adminEmail && user?.email === adminEmail) return;
+
     await supabase.from("analytics_events").insert({
       user_id: user?.id ?? null,
       anonymous_id: getAnonId(),
