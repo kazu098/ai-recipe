@@ -11,10 +11,24 @@ function getAnonId(): string {
   return id;
 }
 
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
 export async function trackEvent(
   eventName: string,
   properties: Record<string, unknown> = {}
 ): Promise<void> {
+  // GA4 へ送信
+  try {
+    window.gtag?.("event", eventName, properties);
+  } catch {
+    // silent
+  }
+
+  // Supabase analytics_events テーブルへも保存
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -32,17 +46,17 @@ export async function trackEvent(
 // ─── イベント名定数 ────────────────────────────────────────────────────────────
 
 export const EVENTS = {
-  PHOTO_UPLOADED:     "photo_uploaded",
-  ANALYSIS_STARTED:   "analysis_started",
-  MEAL_SUGGESTED:     "meal_suggested",
-  ALTERNATIVE_VIEWED: "alternative_viewed",
-  MEAL_SELECTED:      "meal_selected",
-  RECIPE_COOKED:      "recipe_cooked",
-  RECIPE_NOT_COOKED:  "recipe_not_cooked",
-  GUEST_LIMIT_HIT:    "guest_limit_hit",
-  UPGRADE_MODAL_SHOWN:"upgrade_modal_shown",
-  LOGIN_PROMPTED:     "login_prompted",
-  LOGIN_COMPLETED:    "login_completed",
-  TIRED_MODE_TOGGLED: "tired_mode_toggled",
-  PATTERN_SELECTED:   "pattern_selected",
+  PHOTO_UPLOADED:      "photo_uploaded",
+  ANALYSIS_STARTED:    "analysis_started",
+  MEAL_SUGGESTED:      "meal_suggested",
+  ALTERNATIVE_VIEWED:  "alternative_viewed",
+  MEAL_SELECTED:       "meal_selected",
+  RECIPE_COOKED:       "recipe_cooked",
+  RECIPE_NOT_COOKED:   "recipe_not_cooked",
+  GUEST_LIMIT_HIT:     "guest_limit_hit",
+  UPGRADE_MODAL_SHOWN: "upgrade_modal_shown",
+  LOGIN_PROMPTED:      "login_prompted",
+  LOGIN_COMPLETED:     "login_completed",
+  TIRED_MODE_TOGGLED:  "tired_mode_toggled",
+  PATTERN_SELECTED:    "pattern_selected",
 } as const;
