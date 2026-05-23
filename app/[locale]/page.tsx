@@ -257,14 +257,23 @@ export default function HomePage() {
           { id: session.user.id, email: session.user.email ?? "" },
           { onConflict: "id", ignoreDuplicates: true }
         );
-        // DBからお気に入りを読み込み（localStorage とマージ）
+        // DBとlocalStorageのお気に入りを双方向同期
         fetch("/api/favorites?names=1")
           .then((r) => r.json())
           .then((d) => {
             if (Array.isArray(d.favorites)) {
+              const dbNames = d.favorites as string[];
               setFavorites((prev) => {
-                const merged = Array.from(new Set([...prev, ...d.favorites as string[]]));
+                const merged = Array.from(new Set([...prev, ...dbNames]));
                 localStorage.setItem("snapmeal_favorites", JSON.stringify(merged));
+                // localStorage にあってDBにない項目をDBへ同期
+                prev.filter((n) => !dbNames.includes(n)).forEach((meal_name) => {
+                  fetch("/api/favorites", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ meal_name }),
+                  }).catch(() => {});
+                });
                 return merged;
               });
             }
@@ -307,9 +316,18 @@ export default function HomePage() {
           .then((r) => r.json())
           .then((d) => {
             if (Array.isArray(d.favorites)) {
+              const dbNames = d.favorites as string[];
               setFavorites((prev) => {
-                const merged = Array.from(new Set([...prev, ...d.favorites as string[]]));
+                const merged = Array.from(new Set([...prev, ...dbNames]));
                 localStorage.setItem("snapmeal_favorites", JSON.stringify(merged));
+                // localStorage にあってDBにない項目をDBへ同期
+                prev.filter((n) => !dbNames.includes(n)).forEach((meal_name) => {
+                  fetch("/api/favorites", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ meal_name }),
+                  }).catch(() => {});
+                });
                 return merged;
               });
             }
@@ -776,18 +794,12 @@ export default function HomePage() {
         onBack={() => setView("upload")}
         onLogin={() => setView("login")}
         user={user}
-        favorites={favorites}
         onRemoveFavorite={(name) => {
           setFavorites((prev) => {
             const next = prev.filter((n) => n !== name);
             localStorage.setItem("snapmeal_favorites", JSON.stringify(next));
             return next;
           });
-          fetch("/api/favorites", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ meal_name: name }),
-          }).catch(() => {});
         }}
       />
     );
@@ -1142,13 +1154,11 @@ function FavoritesView({
   onBack,
   onLogin,
   user,
-  favorites,
   onRemoveFavorite,
 }: {
   onBack: () => void;
   onLogin: () => void;
   user: import("@supabase/supabase-js").User | null;
-  favorites: string[];
   onRemoveFavorite: (name: string) => void;
 }) {
   const t = useTranslations("favorites");
