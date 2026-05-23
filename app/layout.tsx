@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { getLocale } from "next-intl/server";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import { ServiceWorkerUpdater } from "@/components/ServiceWorkerUpdater";
 import "./globals.css";
+
+const GA_ID = "G-9MQ8NH6HE8";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -54,6 +57,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ServiceWorkerUpdater />
         {children}
       </body>
+      <GoogleAnalytics gaId={GA_ID} />
     </html>
   );
 }
