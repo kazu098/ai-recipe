@@ -12,9 +12,10 @@ const ALWAYS_AVAILABLE_SEASONINGS_JA = `
 `.trim();
 
 const ALWAYS_AVAILABLE_SEASONINGS_EN = `
-soy sauce, salt, pepper, sugar, mirin, cooking sake, vinegar, vegetable oil, sesame oil, butter, mayonnaise, ketchup
-miso, dashi/broth (Japanese, consommé, chicken), flour, cornstarch, olive oil, mentsuyu, ponzu
-Worcestershire sauce, doubanjiang, oyster sauce, ginger (tube), garlic (tube)
+salt, black pepper, sugar, white vinegar, apple cider vinegar, vegetable oil, olive oil, butter, mayonnaise, ketchup
+chicken/beef/vegetable broth, all-purpose flour, cornstarch, soy sauce, Worcestershire sauce, hot sauce
+garlic powder, onion powder, cumin, paprika, Italian seasoning, dried oregano, red pepper flakes
+Dijon mustard, balsamic vinegar, honey, heavy cream, tomato paste
 `.trim();
 
 function buildSubDishFields(components: ActiveComp[]): string {
@@ -32,6 +33,12 @@ function buildSubDishFields(components: ActiveComp[]): string {
 
 function buildCuisineNote(cuisine_pattern: string, locale: string): string {
   const isEn = locale === "en";
+
+  // 英語ユーザーがデフォルト（japanese）のままの場合は洋食バイアスを適用
+  if (isEn && cuisine_pattern === "japanese") {
+    return "\n- Cuisine: Any — prefer globally familiar dishes (Western, Mediterranean, global). Japanese dishes acceptable if ingredients call for them. Avoid defaulting to purely Japanese dishes (nikujaga, teriyaki, etc.).";
+  }
+
   const notes: Record<string, { en: string; ja: string }> = {
     western:  { en: "- Cuisine: Western (American/European). Suggest pasta, grilled meats, tacos, burgers, salads, soups. NOT Japanese-style western food.", ja: "- ジャンル: 洋食（欧米スタイル）。パスタ・グリル料理・タコス・バーガー・サラダ・スープなど。日本化した洋食（ハンバーグ・コロッケ等）は避ける。" },
     korean:   { en: "- Cuisine: Korean. Suggest bibimbap, bulgogi, kimchi jjigae, japchae, tteokbokki, dakgalbi, doenjang jjigae, pajeon.", ja: "- ジャンル: 韓国料理。ビビンバ・プルコギ・キムチチゲ・チャプチェ・トッポッキ・タッカルビ・テンジャンチゲ・チヂミ。" },
