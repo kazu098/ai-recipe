@@ -269,7 +269,8 @@ function buildPrompt(
   household_profile: HouseholdProfile = {},
   favorite_meals: string[] = [],
   disliked_meals: string[] = [],
-  cuisine_pattern = "japanese"
+  cuisine_pattern = "japanese",
+  priority_ingredients: string[] = []
 ): string {
   const isEn = locale === "en";
   const mainComp = meal_components.find((c) => c.role === "main");
@@ -366,6 +367,11 @@ The user has a Hitachi Hotcook (automatic cooking pot).
   const hasUserRequest = user_request.trim().length > 0;
   const seasonings = isEn ? ALWAYS_AVAILABLE_SEASONINGS_EN : ALWAYS_AVAILABLE_SEASONINGS_JA;
   const ingredientList = ingredients.join(isEn ? ", " : "、");
+  const priorityNote = priority_ingredients.length > 0
+    ? isEn
+      ? `\n[Priority ingredients — MUST USE these in the dish]: ${priority_ingredients.join(", ")}\n`
+      : `\n【優先使用食材 — 必ずこれらを料理に使うこと】: ${priority_ingredients.join("、")}\n`
+    : "";
 
   if (isEn) {
     const energyNote = tired_mode
@@ -388,7 +394,7 @@ User request: "${user_request.trim()}"
 
 [Fridge contents (already recognized from photo)]:
 ${ingredientList}
-
+${priorityNote}
 Execute the following steps:
 
 Step 1: Read the request. Identify the ingredient(s) or dish the user wants.
@@ -445,7 +451,7 @@ Output JSON only (no code block, no explanation):
 
 [Fridge contents (already recognized from photo)]:
 ${ingredientList}
-
+${priorityNote}
 Situation:
 - Meal: ${meal_time}
 - Energy: ${energyNote}
@@ -497,7 +503,7 @@ Output JSON only (no code block, no explanation):
 
 【冷蔵庫にある食材】（画像認識済み）:
 ${ingredientList}
-
+${priorityNote}
 以下の手順を1つずつ実行せよ:
 
 ステップ1: 上記リクエストを読み、ユーザーが「使いたい食材」または「作りたい料理」を特定せよ。
@@ -554,7 +560,7 @@ ${soupComp ? `- soupには必ず味噌汁・スープ・汁物など液体を含
 
 【冷蔵庫にある食材】（画像認識済み）:
 ${ingredientList}
-
+${priorityNote}
 状況:
 - 食事: ${meal_time}
 - 余力: ${tired_mode ? "疲れている。調理時間15分以内・食材少なめ・包丁をほぼ使わない・工程が3ステップ以内の料理を優先。電子レンジ・ホットクック・温めるだけ・混ぜるだけ・袋のまま調理など、手間が最小の調理法を選ぶこと" : "通常"}
@@ -657,6 +663,7 @@ export async function POST(req: NextRequest) {
   const {
     imageDataUrls,
     ingredients_override,
+    priority_ingredients = [],
     tired_mode = false,
     meal_time = "夕食",
     meal_components = [{ role: "main", label: "メイン" }],
@@ -735,7 +742,8 @@ export async function POST(req: NextRequest) {
         const prompt = buildPrompt(
           tired_mode, meal_time, history, meal_components as ActiveComp[],
           locale, has_hotcook, user_request, ingredients, household_profile as HouseholdProfile,
-          favorite_meals as string[], disliked_meals as string[], cuisine_pattern as string
+          favorite_meals as string[], disliked_meals as string[], cuisine_pattern as string,
+          priority_ingredients as string[]
         );
         if (process.env.GEMINI_API_KEY) {
           try {

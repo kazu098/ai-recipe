@@ -573,7 +573,7 @@ export default function HomePage() {
   }, [images, user, tUpload]);
 
   // Phase A-2: 確定した食材リストで献立生成
-  const startAnalysis = useCallback(async (ingredientsToUse?: string[]) => {
+  const startAnalysis = useCallback(async (ingredientsToUse?: string[], priorityIngredients?: string[]) => {
     const useOverride = ingredientsToUse && ingredientsToUse.length > 0;
     if (!useOverride && !images.length) return;
 
@@ -615,6 +615,9 @@ export default function HomePage() {
         body.ingredients_override = ingredientsToUse;
       } else {
         body.imageDataUrls = images.map((i) => i.dataUrl);
+      }
+      if (priorityIngredients && priorityIngredients.length > 0) {
+        body.priority_ingredients = priorityIngredients;
       }
       const res = await fetch("/api/analyze", {
         method: "POST",
@@ -709,9 +712,9 @@ export default function HomePage() {
       <IngredientConfirmView
         ingredients={confirmedIngredients}
         images={images}
-        onConfirm={(edited) => {
+        onConfirm={(edited, priority) => {
           setConfirmedIngredients(edited);
-          startAnalysis(edited);
+          startAnalysis(edited, priority);
         }}
         onBack={() => setView("upload")}
       />
@@ -1942,13 +1945,35 @@ function IngredientConfirmView({
 }: {
   ingredients: string[];
   images: ImageItem[];
-  onConfirm: (edited: string[]) => void;
+  onConfirm: (edited: string[], priority: string[]) => void;
   onBack: () => void;
 }) {
   const t = useTranslations("ingredientConfirm");
   const [items, setItems] = useState<string[]>(ingredients);
+  const [prioritized, setPrioritized] = useState<Set<string>>(new Set());
   const [input, setInput] = useState("");
   const [expandedImg, setExpandedImg] = useState<string | null>(null);
+
+  const togglePriority = (item: string) => {
+    setPrioritized((prev) => {
+      const next = new Set(prev);
+      if (next.has(item)) {
+        next.delete(item);
+      } else {
+        next.add(item);
+      }
+      return next;
+    });
+  };
+
+  const removeItem = (item: string) => {
+    setItems((prev) => prev.filter((v) => v !== item));
+    setPrioritized((prev) => {
+      const next = new Set(prev);
+      next.delete(item);
+      return next;
+    });
+  };
 
   const addItem = () => {
     const trimmed = input.trim();
@@ -1958,8 +1983,9 @@ function IngredientConfirmView({
     setInput("");
   };
 
-  const removeItem = (idx: number) => {
-    setItems((prev) => prev.filter((_, i) => i !== idx));
+  const handleConfirm = () => {
+    const priority = items.filter((item) => prioritized.has(item));
+    onConfirm(items, priority);
   };
 
   return (
@@ -1993,28 +2019,56 @@ function IngredientConfirmView({
         </div>
       )}
 
-      <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
-        <p className="text-sm font-semibold text-gray-700 mb-3">
-          {t("section_title")}
-          <span className="ml-2 text-xs font-normal text-muted">{t("tap_to_remove")}</span>
-        </p>
+      <div className="bg-white rounded-2xl p-4 mb-2 border border-gray-100">
+        <p className="text-sm font-semibold text-gray-700 mb-1">{t("section_title")}</p>
+        <p className="text-xs text-muted mb-3">{t("priority_hint")}</p>
         {items.length === 0 ? (
           <p className="text-sm text-muted text-center py-6">{t("empty")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {items.map((item, i) => (
-              <button
-                key={i}
-                onClick={() => removeItem(i)}
-                className="inline-flex items-center gap-1 bg-green-50 text-green-800 border border-green-200 rounded-full px-3 py-1.5 text-sm font-medium hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition group"
-              >
-                {item}
-                <span className="text-green-400 group-hover:text-red-400 transition leading-none">×</span>
-              </button>
-            ))}
+            {items.map((item) => {
+              const isPriority = prioritized.has(item);
+              return (
+                <div
+                  key={item}
+                  className={`inline-flex items-center gap-1 rounded-full pl-3 pr-1 py-1.5 text-sm font-medium border transition ${
+                    isPriority
+                      ? "bg-amber-50 text-amber-800 border-amber-300"
+                      : "bg-green-50 text-green-800 border-green-200"
+                  }`}
+                >
+                  <button
+                    onClick={() => togglePriority(item)}
+                    className="flex items-center gap-1"
+                  >
+                    {isPriority && (
+                      <span className="text-xs bg-amber-400 text-white rounded-full px-1.5 py-0.5 leading-none mr-0.5">
+                        {t("prioritized_badge")}
+                      </span>
+                    )}
+                    {item}
+                  </button>
+                  <button
+                    onClick={() => removeItem(item)}
+                    aria-label={t("remove_btn")}
+                    className={`ml-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs leading-none transition ${
+                      isPriority
+                        ? "text-amber-400 hover:bg-amber-100"
+                        : "text-green-400 hover:bg-green-100"
+                    }`}
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
+
+      {prioritized.size === 0 && items.length > 0 && (
+        <p className="text-xs text-muted px-1 mb-3">{t("priority_note")}</p>
+      )}
 
       <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
         <p className="text-sm font-semibold text-gray-700 mb-2">{t("add_section")}</p>
@@ -2038,7 +2092,7 @@ function IngredientConfirmView({
       </div>
 
       <button
-        onClick={() => onConfirm(items)}
+        onClick={handleConfirm}
         disabled={items.length === 0}
         className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-green-200 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
       >
