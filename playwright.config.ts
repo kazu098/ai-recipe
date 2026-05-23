@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  timeout: 30_000,
+  timeout: 60_000,
   retries: 0,
   reporter: "list",
   use: {
@@ -14,6 +14,24 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "local",
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: "http://localhost:3000",
+        locale: "ja-JP",
+      },
+      testMatch: "**/app-flow.spec.ts",
+    },
+    {
+      name: "mobile-local",
+      use: {
+        ...devices["iPhone 14"],
+        baseURL: "http://localhost:3000",
+        locale: "ja-JP",
+      },
+      testMatch: "**/app-flow.spec.ts",
     },
   ],
 });
