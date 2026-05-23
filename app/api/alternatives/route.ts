@@ -30,6 +30,20 @@ function buildSubDishFields(components: ActiveComp[]): string {
   return parts.length ? ",\n" + parts.join(",\n") : "";
 }
 
+function buildCuisineNote(cuisine_pattern: string, locale: string): string {
+  const isEn = locale === "en";
+  const notes: Record<string, { en: string; ja: string }> = {
+    western:  { en: "- Cuisine: Western (American/European). Suggest pasta, grilled meats, tacos, burgers, salads, soups. NOT Japanese-style western food.", ja: "- ジャンル: 洋食（欧米スタイル）。パスタ・グリル料理・タコス・バーガー・サラダ・スープなど。日本化した洋食（ハンバーグ・コロッケ等）は避ける。" },
+    korean:   { en: "- Cuisine: Korean. Suggest bibimbap, bulgogi, kimchi jjigae, japchae, tteokbokki, dakgalbi, doenjang jjigae, pajeon.", ja: "- ジャンル: 韓国料理。ビビンバ・プルコギ・キムチチゲ・チャプチェ・トッポッキ・タッカルビ・テンジャンチゲ・チヂミ。" },
+    chinese:  { en: "- Cuisine: Chinese. Suggest mapo tofu, kung pao chicken, fried rice, lo mein, dumplings, sweet and sour pork, hot and sour soup.", ja: "- ジャンル: 中華料理。麻婆豆腐・宮保鶏丁・チャーハン・焼きそば・餃子・酢豚・酸辣湯。" },
+    japanese: { en: "- Cuisine: Japanese. Suggest miso soup, yakitori, karaage, nikujaga, oyakodon, teriyaki, agedashi tofu.", ja: "- ジャンル: 和食。味噌汁・焼き鳥・唐揚げ・肉じゃが・親子丼・照り焼き・揚げ出し豆腐。" },
+    ethnic:   { en: "- Cuisine: Ethnic/Global. Suggest Thai curry, pad thai, tikka masala, tacos, pho, shakshuka, nasi goreng.", ja: "- ジャンル: エスニック。グリーンカレー・パッタイ・ティッカマサラ・タコス・フォー・シャクシュカ・ナシゴレン。" },
+  };
+  const note = notes[cuisine_pattern];
+  if (!note) return "";
+  return "\n" + (isEn ? note.en : note.ja);
+}
+
 function buildPrompt(
   ingredients: string[],
   tired_mode: boolean,
@@ -38,7 +52,8 @@ function buildPrompt(
   meal_components: ActiveComp[],
   locale: string,
   has_hotcook: boolean,
-  user_request: string
+  user_request: string,
+  cuisine_pattern = "japanese"
 ): string {
   const isEn = locale === "en";
   const [type2, type3] = tired_mode
@@ -99,7 +114,7 @@ Fridge contents:
 ${ingredients.join(", ")}
 
 Meal structure: ${mainLabel}${componentNote ? ` + ${componentNote}` : " only"}
-${hotcookNote}
+${hotcookNote}${buildCuisineNote(cuisine_pattern, locale)}
 
 "${meal_1_name}" (${meal_1_type}) has already been suggested.
 Suggest 2 more ${mainLabel} dishes using the above ingredients${hasUserRequest ? " and the user request" : " and pantry staples"}.
@@ -188,7 +203,7 @@ ${seasonings}
 ${ingredients.join("、")}
 
 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
-${hotcookNote}
+${hotcookNote}${buildCuisineNote(cuisine_pattern, locale)}
 
 「${meal_1_name}」（${meal_1_type}）は既に提案済みです。
 上記の食材${hasUserRequest ? "とユーザーリクエスト" : "と常備調味料だけ"}で作れる${mainLabel}をあと2案提案してください。
@@ -246,6 +261,7 @@ export async function POST(req: NextRequest) {
     meal_1_type,
     session_id,
     meal_components = [{ role: "main", label: "メイン" }],
+    cuisine_pattern = "japanese",
     locale = "ja",
     appliances = [],
     user_request = "",
@@ -282,7 +298,8 @@ export async function POST(req: NextRequest) {
           meal_components as ActiveComp[],
           locale,
           has_hotcook,
-          user_request
+          user_request,
+          cuisine_pattern as string
         );
 
         const result = await model.generateContent(prompt);
