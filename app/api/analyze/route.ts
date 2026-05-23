@@ -21,9 +21,10 @@ const ALWAYS_AVAILABLE_SEASONINGS_JA = `
 `.trim();
 
 const ALWAYS_AVAILABLE_SEASONINGS_EN = `
-soy sauce, salt, pepper, sugar, mirin, cooking sake, vinegar, vegetable oil, sesame oil, butter, mayonnaise, ketchup
-miso, dashi/broth (Japanese, consommé, chicken), flour, cornstarch, olive oil, mentsuyu, ponzu
-Worcestershire sauce, doubanjiang, oyster sauce, ginger (tube), garlic (tube)
+salt, black pepper, sugar, white vinegar, apple cider vinegar, vegetable oil, olive oil, butter, mayonnaise, ketchup
+chicken/beef/vegetable broth, all-purpose flour, cornstarch, soy sauce, Worcestershire sauce, hot sauce
+garlic powder, onion powder, cumin, paprika, Italian seasoning, dried oregano, red pepper flakes
+Dijon mustard, balsamic vinegar, honey, heavy cream, tomato paste
 `.trim();
 
 // 1枚の画像から食材のみを認識する軽量プロンプト
@@ -190,6 +191,17 @@ function buildFavoritesSection(favorites: string[], disliked: string[], locale: 
 
 function buildCuisineBlock(cuisine_pattern: string, locale: string): string {
   const isEn = locale === "en";
+
+  // 英語ユーザーがデフォルト（japanese）のままの場合は洋食バイアスを適用
+  if (isEn && cuisine_pattern === "japanese") {
+    return `
+[Cuisine Style: Any — prefer globally familiar dishes]
+Suggest dishes that are common in Western, Mediterranean, or global home cooking.
+Examples: pasta, roast chicken, stir-fried vegetables with garlic, grain bowls, soups, stews, tacos, salmon with herbs, frittata, curry, fried rice.
+Japanese-style dishes are acceptable if the available ingredients strongly call for them.
+Do NOT default to purely Japanese dishes (nikujaga, teriyaki, chawanmushi, etc.) unless the ingredients or a user request clearly suggest them.
+`;
+  }
 
   const blocks: Record<string, { en: string; ja: string }> = {
     japanese: {
