@@ -478,7 +478,7 @@ export default function HomePage() {
   // ── Phase B: alternatives (background) ─────────────────────────────────────
 
   const startAlternatives = useCallback(
-    async (ingredients: string[], meal1: Meal, sid: string | null) => {
+    async (ingredients: string[], meal1: Meal, sid: string | null, priorityIngredients?: string[]) => {
       try {
         const res = await fetch("/api/alternatives", {
           method: "POST",
@@ -494,6 +494,7 @@ export default function HomePage() {
             locale,
             appliances: settings?.appliances ?? [],
             user_request: userRequest,
+            ...(priorityIngredients?.length ? { priority_ingredients: priorityIngredients } : {}),
           }),
         });
         await readSSE(res, (type, data) => {
@@ -655,11 +656,11 @@ export default function HomePage() {
           capturedSessionId = d.session_id;
           setSessionId(d.session_id);
           if (capturedMeal) {
-            startAlternatives(capturedIngredients, capturedMeal, capturedSessionId);
+            startAlternatives(capturedIngredients, capturedMeal, capturedSessionId, priorityIngredients);
           }
         } else if (type === "done") {
           if (capturedMeal && !capturedSessionId) {
-            startAlternatives(capturedIngredients, capturedMeal, null);
+            startAlternatives(capturedIngredients, capturedMeal, null, priorityIngredients);
           }
         } else if (type === "error") {
           const d = data as { message: string; code?: string };

@@ -53,7 +53,8 @@ function buildPrompt(
   locale: string,
   has_hotcook: boolean,
   user_request: string,
-  cuisine_pattern = "japanese"
+  cuisine_pattern = "japanese",
+  priority_ingredients: string[] = []
 ): string {
   const isEn = locale === "en";
   const [type2, type3] = tired_mode
@@ -73,6 +74,12 @@ function buildPrompt(
 
   const hasUserRequest = user_request.trim().length > 0;
   const seasonings = isEn ? ALWAYS_AVAILABLE_SEASONINGS_EN : ALWAYS_AVAILABLE_SEASONINGS_JA;
+  const ingredientList = ingredients.join(isEn ? ", " : "、");
+  const priorityNote = priority_ingredients.length > 0
+    ? isEn
+      ? `\n[Priority ingredients — MUST USE these in BOTH suggested dishes]: ${priority_ingredients.join(", ")}\n`
+      : `\n【優先使用食材 — 両方の提案料理に必ずこれらを使うこと】: ${priority_ingredients.join("、")}\n`
+    : "";
 
   if (isEn) {
     const componentNote = [
@@ -111,7 +118,8 @@ ${userRequestBlock}
 ${seasonings}
 
 Fridge contents:
-${ingredients.join(", ")}
+${ingredientList}
+${priorityNote}
 
 Meal structure: ${mainLabel}${componentNote ? ` + ${componentNote}` : " only"}
 ${hotcookNote}${buildCuisineNote(cuisine_pattern, locale)}
@@ -200,7 +208,8 @@ ${userRequestBlock}
 ${seasonings}
 
 冷蔵庫にある食材:
-${ingredients.join("、")}
+${ingredientList}
+${priorityNote}
 
 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
 ${hotcookNote}${buildCuisineNote(cuisine_pattern, locale)}
@@ -265,6 +274,7 @@ export async function POST(req: NextRequest) {
     locale = "ja",
     appliances = [],
     user_request = "",
+    priority_ingredients = [],
   } = await req.json();
 
   if (!ingredients?.length) {
@@ -299,7 +309,8 @@ export async function POST(req: NextRequest) {
           locale,
           has_hotcook,
           user_request,
-          cuisine_pattern as string
+          cuisine_pattern as string,
+          priority_ingredients as string[]
         );
 
         const result = await model.generateContent(prompt);
