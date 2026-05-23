@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import { randomUUID } from "crypto";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import {
   getAuthUserId,
   getRecentMealHistory,
@@ -824,6 +825,19 @@ export async function POST(req: NextRequest) {
         if (sessionId) send("session", { session_id: sessionId });
         send("done", {});
       } catch (err) {
+        try {
+          const adminDb = createServiceClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+          );
+          await adminDb.from("analytics_events").insert({
+            user_id: userId ?? null,
+            event_name: "analysis_error",
+            properties: { error: err instanceof Error ? err.message : String(err) },
+          });
+        } catch {
+          // analytics failure は無視
+        }
         send("error", { message: err instanceof Error ? err.message : String(err) });
       } finally {
         controller.close();
