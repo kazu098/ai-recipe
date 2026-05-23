@@ -60,7 +60,7 @@
 | コンセプト | Snap（撮る）+ Meal（食事）= 撮るだけで献立が決まる |
 | コアコピー（日本語） | 「冷蔵庫を撮るだけ。30秒で今夜の夕食が決まる」 |
 | コアコピー（英語） | "Snap your fridge. Dinner decided in 30 seconds." |
-| ドメイン候補 | `snapmeal.app` / `snapmeal.io`（要取得確認） |
+| ドメイン | `snap-meal.com`（取得済み・運用中） |
 
 ### 1-5. デザインシステム
 
