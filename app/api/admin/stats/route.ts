@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
 
   const days = Number(req.nextUrl.searchParams.get("days") ?? "30");
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const excludeUserId = user.id;
 
   // service_role で集計（RLS をバイパス）
   const admin = createServiceClient(
@@ -30,28 +31,30 @@ export async function GET(req: NextRequest) {
   );
 
   const [eventsRes, dailyRes, genreRes, patternRes, usersRes] = await Promise.all([
-    // ① イベント別合計
-    admin.rpc("admin_event_counts", { p_since: since }),
+    // ① イベント別合計（管理者自身を除外）
+    admin.rpc("admin_event_counts", { p_since: since, p_exclude_user_id: excludeUserId }),
 
-    // ② 日別イベント数（チャート用）
-    admin.rpc("admin_daily_events", { p_since: since }),
+    // ② 日別イベント数（管理者自身を除外）
+    admin.rpc("admin_daily_events", { p_since: since, p_exclude_user_id: excludeUserId }),
 
-    // ③ ジャンル別選択数
+    // ③ ジャンル別選択数（管理者自身を除外）
     admin
       .from("analytics_events")
       .select("properties")
       .eq("event_name", "meal_selected")
-      .gte("created_at", since),
+      .gte("created_at", since)
+      .neq("user_id", excludeUserId),
 
-    // ④ ミールパターン別利用数
+    // ④ ミールパターン別利用数（管理者自身を除外）
     admin
       .from("analytics_events")
       .select("properties")
       .eq("event_name", "analysis_started")
-      .gte("created_at", since),
+      .gte("created_at", since)
+      .neq("user_id", excludeUserId),
 
-    // ⑤ ユーザー数（profiles）
-    admin.from("profiles").select("plan", { count: "exact" }),
+    // ⑤ ユーザー数（管理者自身を除外）
+    admin.from("profiles").select("plan", { count: "exact" }).neq("id", excludeUserId),
   ]);
 
   // ジャンル集計
