@@ -223,15 +223,18 @@
   },
   "ingredientConfirm": {
     "title": "認識した食材",
-    "subtitle": "画像を確認しながら追加・削除できます",
+    "subtitle": "今日使いたい食材があればタップしてください",
     "fridge_img_alt": "冷蔵庫 {n}",
     "section_title": "認識した食材",
-    "tap_to_remove": "（タップで削除）",
+    "priority_hint": "タップで優先使用・もう一度タップで解除（任意）",
+    "priority_note": "何もタップしなければ全食材から提案します",
+    "prioritized_badge": "優先",
+    "remove_btn": "削除",
     "empty": "食材が認識されませんでした",
     "add_section": "食材を追加",
     "placeholder": "例: 豚バラ肉、卵...",
     "add_btn": "追加",
-    "confirm_btn": "この食材で献立を作る",
+    "confirm_btn": "この食材で献立を決める",
     "expanded_alt": "冷蔵庫の写真"
   },
   "authCallback": {
