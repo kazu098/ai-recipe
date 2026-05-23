@@ -2568,6 +2568,36 @@ function RecipeView({
                 {feedbackSaved && (
                   <p className="text-xs text-gray-400 text-center">{t("saved")}</p>
                 )}
+
+                {/* シェアボタン */}
+                <div className="pt-1">
+                  <p className="text-xs text-gray-400 text-center mb-2">{t("share_label")}</p>
+                  <div className="flex gap-2">
+                    <a
+                      href={`https://x.com/intent/tweet?text=${encodeURIComponent(t("share_text", { meal: recipe.title }))}&url=${encodeURIComponent("https://app.snap-meal.com")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => trackEvent(EVENTS.SHARE_RECIPE, { meal_name: recipe.title, channel: "x" })}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-center bg-black text-white hover:bg-gray-800 transition"
+                    >
+                      {t("share_x")}
+                    </a>
+                    <button
+                      onClick={async () => {
+                        const shareText = t("share_text", { meal: recipe.title });
+                        trackEvent(EVENTS.SHARE_RECIPE, { meal_name: recipe.title, channel: "native" });
+                        if (navigator.share) {
+                          await navigator.share({ title: "Snapmeal", text: shareText, url: "https://app.snap-meal.com" }).catch(() => {});
+                        } else {
+                          await navigator.clipboard.writeText(`${shareText}\nhttps://app.snap-meal.com`).catch(() => {});
+                        }
+                      }}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+                    >
+                      {t("share_other")}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
