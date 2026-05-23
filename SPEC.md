@@ -1176,7 +1176,7 @@ first_visit → onboarding → photo_uploaded → meals_generated
 
 ## 13. 実装開始前の残タスク
 
-- [ ] `snapmeal.app` ドメイン取得
+- [x] `snap-meal.com` ドメイン取得（snapmeal.appは不要・snap-meal.comで進行）
 - [x] Supabase プロジェクト作成
 - [ ] PostHog プロジェクト作成
 - [x] Gemini API キー取得
