@@ -6,8 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useTranslations, useLocale } from "next-intl";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import {
-  MEAL_PATTERNS,
-  DEFAULT_PATTERN,
+  getOrderedPatterns,
+  getDefaultPattern,
   getActiveComponents,
   getComponentLabel,
   type MealPattern,
@@ -201,7 +201,7 @@ export default function HomePage() {
   const [recipe, setRecipe] = useState<RecipeData | null>(null);
   const [recipeLoading, setRecipeLoading] = useState(false);
   const [selectedAppliance, setSelectedAppliance] = useState<string>("pan");
-  const [selectedPattern, setSelectedPattern] = useState<MealPattern>(DEFAULT_PATTERN);
+  const [selectedPattern, setSelectedPattern] = useState<MealPattern>(getDefaultPattern("ja"));
   const [enabledRoles, setEnabledRoles] = useState<ComponentRole[]>([]);
   const [userRequest, setUserRequest] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -217,6 +217,12 @@ export default function HomePage() {
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
   const locale = useLocale() as "ja" | "en";
   const tUpload = useTranslations("upload");
+
+  // ロケールに応じたデフォルトジャンルを初回のみ適用
+  useEffect(() => {
+    setSelectedPattern(getDefaultPattern(locale));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const defaultAppliance = (s: UserSettings) =>
     s.appliances.includes("hotcook") ? "hotcook" : (s.appliances[0] ?? "pan");
@@ -1833,19 +1839,19 @@ function UploadView({
       {/* Meal pattern selector */}
       <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
         <p className="text-sm font-semibold text-gray-700 mb-3">{t("style_q")}</p>
-        <div className="grid grid-cols-3 gap-2">
-          {MEAL_PATTERNS.map((pattern) => (
+        <div className="flex flex-wrap gap-2">
+          {getOrderedPatterns(locale).map((pattern) => (
             <button
               key={pattern.id}
               onClick={() => onSelectPattern(pattern)}
-              className={`flex flex-col items-center py-2.5 px-1 rounded-xl text-sm font-semibold transition ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition ${
                 selectedPattern.id === pattern.id
                   ? "bg-primary text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
-              <span className="text-lg">{pattern.emoji}</span>
-              <span className="text-xs mt-0.5">{pattern.label[locale]}</span>
+              <span>{pattern.emoji}</span>
+              <span>{pattern.label[locale]}</span>
             </button>
           ))}
         </div>
