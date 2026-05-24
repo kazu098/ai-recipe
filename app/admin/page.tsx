@@ -76,17 +76,24 @@ export default function AdminPage() {
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
 
-  useEffect(() => {
+  const loadStats = (d: number) => {
     setLoading(true);
-    fetch(`/api/admin/stats?days=${days}`, { cache: "no-store" })
+    fetch(`/api/admin/stats?days=${d}&_=${Date.now()}`, { cache: "no-store" })
       .then((r) => {
         if (!r.ok) throw new Error("forbidden");
         return r.json();
       })
-      .then((d: Stats) => { setStats(d); setLoading(false); })
+      .then((data: Stats) => {
+        setStats(data);
+        setFetchedAt(new Date());
+        setLoading(false);
+      })
       .catch((e: Error) => { setError(e.message); setLoading(false); });
-  }, [days]);
+  };
+
+  useEffect(() => { loadStats(days); }, [days]);
 
   const ec = (name: string) =>
     stats?.event_counts.find((e) => e.event_name === name)?.cnt ?? 0;
@@ -130,7 +137,7 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-gray-50 max-w-4xl mx-auto px-4 py-8">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Snapmeal Admin</h1>
           <p className="text-sm text-gray-400 mt-0.5">Analytics Dashboard</p>
@@ -139,7 +146,7 @@ export default function AdminPage() {
           {[7, 14, 30].map((d) => (
             <button
               key={d}
-              onClick={() => setDays(d)}
+              onClick={() => { setDays(d); if (d === days) loadStats(d); }}
               className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${
                 days === d ? "bg-primary text-white" : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300"
               }`}
@@ -147,8 +154,20 @@ export default function AdminPage() {
               {d}日
             </button>
           ))}
+          <button
+            onClick={() => loadStats(days)}
+            className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-white text-gray-600 border border-gray-200 hover:border-gray-300 transition"
+            title="最新データを取得"
+          >
+            ↻
+          </button>
         </div>
       </div>
+      {fetchedAt && (
+        <p className="text-xs text-gray-400 mb-6">
+          取得: {fetchedAt.toLocaleTimeString("ja-JP")} ・ 管理者自身のイベントは除外済み
+        </p>
+      )}
 
       {loading ? (
         <div className="flex justify-center mt-24">

@@ -3,6 +3,8 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+
 function isAdmin(email: string | undefined): boolean {
   return !!email && email === process.env.ADMIN_EMAIL;
 }
