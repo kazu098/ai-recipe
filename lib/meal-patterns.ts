@@ -87,6 +87,22 @@ export const MEAL_PATTERNS: MealPattern[] = [
 
 export const DEFAULT_PATTERN = MEAL_PATTERNS[0];
 
+// ロケール別の表示順（自国ジャンルを先頭に）
+const PATTERN_ORDER: Record<string, string[]> = {
+  ja: ["japanese", "western", "chinese", "korean", "ethnic", "oneplate"],
+  en: ["western", "oneplate", "chinese", "korean", "ethnic", "japanese"],
+};
+
+export function getOrderedPatterns(locale: string): MealPattern[] {
+  const order = PATTERN_ORDER[locale] ?? PATTERN_ORDER.ja;
+  return order.map((id) => MEAL_PATTERNS.find((p) => p.id === id)!);
+}
+
+export function getDefaultPattern(locale: string): MealPattern {
+  if (locale === "en") return MEAL_PATTERNS.find((p) => p.id === "western")!;
+  return MEAL_PATTERNS[0];
+}
+
 export function getComponentLabel(
   pattern: MealPattern,
   role: ComponentRole,
