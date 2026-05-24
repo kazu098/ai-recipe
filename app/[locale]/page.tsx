@@ -494,7 +494,7 @@ export default function HomePage() {
             meal_components: getActiveComponents(selectedPattern, enabledRoles, locale),
             cuisine_pattern: selectedPattern.id,
             locale,
-            appliances: settings?.appliances ?? [],
+            appliances: selectedAppliances,
             user_request: userRequest,
             ...(priorityIngredients?.length ? { priority_ingredients: priorityIngredients } : {}),
           }),
