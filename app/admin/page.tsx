@@ -79,7 +79,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/admin/stats?days=${days}`)
+    fetch(`/api/admin/stats?days=${days}`, { cache: "no-store" })
       .then((r) => {
         if (!r.ok) throw new Error("forbidden");
         return r.json();

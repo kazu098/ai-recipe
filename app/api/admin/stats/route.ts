@@ -37,21 +37,21 @@ export async function GET(req: NextRequest) {
     // ② 日別イベント数（管理者自身を除外）
     admin.rpc("admin_daily_events", { p_since: since, p_exclude_user_id: excludeUserId }),
 
-    // ③ ジャンル別選択数（管理者自身を除外）
+    // ③ ジャンル別選択数（管理者自身を除外、匿名ユーザーは含む）
     admin
       .from("analytics_events")
       .select("properties")
       .eq("event_name", "meal_selected")
       .gte("created_at", since)
-      .neq("user_id", excludeUserId),
+      .or(`user_id.neq.${excludeUserId},user_id.is.null`),
 
-    // ④ ミールパターン別利用数（管理者自身を除外）
+    // ④ ミールパターン別利用数（管理者自身を除外、匿名ユーザーは含む）
     admin
       .from("analytics_events")
       .select("properties")
       .eq("event_name", "analysis_started")
       .gte("created_at", since)
-      .neq("user_id", excludeUserId),
+      .or(`user_id.neq.${excludeUserId},user_id.is.null`),
 
     // ⑤ ユーザー数（管理者自身を除外）
     admin.from("profiles").select("plan", { count: "exact" }).neq("id", excludeUserId),
@@ -102,5 +102,5 @@ export async function GET(req: NextRequest) {
       repeat_users: repeatData?.repeat_users ?? 0,
       repeat_rate: repeatData?.repeat_rate ?? 0,
     },
-  });
+  }, { headers: { "Cache-Control": "no-store" } });
 }
