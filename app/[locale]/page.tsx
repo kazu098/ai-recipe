@@ -201,7 +201,7 @@ export default function HomePage() {
   const [recipe, setRecipe] = useState<RecipeData | null>(null);
   const [recipeLoading, setRecipeLoading] = useState(false);
   const [selectedAppliance, setSelectedAppliance] = useState<string>("pan");
-  const [selectedPattern, setSelectedPattern] = useState<MealPattern>(() => getDefaultPattern(locale));
+  const [selectedPattern, setSelectedPattern] = useState<MealPattern>(getDefaultPattern("ja"));
   const [enabledRoles, setEnabledRoles] = useState<ComponentRole[]>([]);
   const [userRequest, setUserRequest] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -217,6 +217,12 @@ export default function HomePage() {
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
   const locale = useLocale() as "ja" | "en";
   const tUpload = useTranslations("upload");
+
+  // ロケールに応じたデフォルトジャンルを初回のみ適用
+  useEffect(() => {
+    setSelectedPattern(getDefaultPattern(locale));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const defaultAppliance = (s: UserSettings) =>
     s.appliances.includes("hotcook") ? "hotcook" : (s.appliances[0] ?? "pan");
