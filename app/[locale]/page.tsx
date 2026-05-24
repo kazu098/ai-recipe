@@ -200,7 +200,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [recipe, setRecipe] = useState<RecipeData | null>(null);
   const [recipeLoading, setRecipeLoading] = useState(false);
-  const [selectedAppliance, setSelectedAppliance] = useState<string>("pan");
+  const [selectedAppliances, setSelectedAppliances] = useState<string[]>(["pan"]);
   const [selectedPattern, setSelectedPattern] = useState<MealPattern>(getDefaultPattern("ja"));
   const [enabledRoles, setEnabledRoles] = useState<ComponentRole[]>([]);
   const [userRequest, setUserRequest] = useState("");
@@ -224,8 +224,8 @@ export default function HomePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const defaultAppliance = (s: UserSettings) =>
-    s.appliances.includes("hotcook") ? "hotcook" : (s.appliances[0] ?? "pan");
+  const defaultAppliances = (s: UserSettings): string[] =>
+    s.appliances.length > 0 ? s.appliances : ["pan"];
 
   useEffect(() => {
     try {
@@ -233,7 +233,7 @@ export default function HomePage() {
       if (stored) {
         const s: UserSettings = JSON.parse(stored);
         setSettings(s);
-        setSelectedAppliance(defaultAppliance(s));
+        setSelectedAppliances(defaultAppliances(s));
       } else {
         setView("onboarding");
       }
@@ -292,9 +292,7 @@ export default function HomePage() {
             if (d.settings && Object.keys(d.settings).length > 0) {
               const s = d.settings as UserSettings;
               setSettings(s);
-              setSelectedAppliance(
-                s.appliances?.includes("hotcook") ? "hotcook" : (s.appliances?.[0] ?? "pan")
-              );
+              setSelectedAppliances(defaultAppliances(s));
               localStorage.setItem("snapmeal_settings", JSON.stringify(s));
             } else {
               // DB未登録 → localStorage の設定を DB に保存
@@ -345,9 +343,7 @@ export default function HomePage() {
             if (d.settings && Object.keys(d.settings).length > 0) {
               const s = d.settings as UserSettings;
               setSettings(s);
-              setSelectedAppliance(
-                s.appliances?.includes("hotcook") ? "hotcook" : (s.appliances?.[0] ?? "pan")
-              );
+              setSelectedAppliances(defaultAppliances(s));
               localStorage.setItem("snapmeal_settings", JSON.stringify(s));
             } else {
               const stored = localStorage.getItem("snapmeal_settings");
@@ -412,7 +408,7 @@ export default function HomePage() {
   const saveSettings = useCallback((s: UserSettings) => {
     localStorage.setItem("snapmeal_settings", JSON.stringify(s));
     setSettings(s);
-    setSelectedAppliance(defaultAppliance(s));
+    setSelectedAppliances(defaultAppliances(s));
     setView("upload");
     // ログイン済みなら DB にも保存
     if (user) {
@@ -437,7 +433,7 @@ export default function HomePage() {
       time_minutes: meal.time_minutes,
       cooking_method: meal.cooking_method,
       meal_index: activeMealIdx,
-      appliance: selectedAppliance,
+      appliances: selectedAppliances.join(","),
       pattern: selectedPattern.id,
     });
 
@@ -458,7 +454,7 @@ export default function HomePage() {
           genre: meal.genre,
           cookingMethod: meal.cooking_method,
           servings: settings?.servings ?? 2,
-          appliances: [selectedAppliance],
+          appliances: selectedAppliances,
           ngFoods: settings?.ng_foods ?? "",
           side: meal.side
             ? { ...meal.side, label: getComponentLabel(selectedPattern, "side", locale) }
@@ -479,7 +475,7 @@ export default function HomePage() {
     } finally {
       setRecipeLoading(false);
     }
-  }, [settings, selectedAppliance, selectedPattern, locale, sessionId, tiredMode]);
+  }, [settings, selectedAppliances, selectedPattern, locale, sessionId, tiredMode]);
 
   // ── Phase B: alternatives (background) ─────────────────────────────────────
 
@@ -825,7 +821,7 @@ export default function HomePage() {
         selectedPattern={selectedPattern}
         enabledRoles={enabledRoles}
         ownedAppliances={settings?.appliances ?? []}
-        selectedAppliance={selectedAppliance}
+        selectedAppliances={selectedAppliances}
         error={error}
         fileInputRef={fileInputRef}
         onAddFiles={addFiles}
@@ -843,7 +839,13 @@ export default function HomePage() {
             prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
           )
         }
-        onChangeAppliance={setSelectedAppliance}
+        onToggleAppliance={(id) =>
+          setSelectedAppliances((prev) =>
+            prev.includes(id)
+              ? prev.length > 1 ? prev.filter((a) => a !== id) : prev
+              : [...prev, id]
+          )
+        }
         userRequest={userRequest}
         onChangeUserRequest={setUserRequest}
         onAnalyze={startRecognition}
@@ -1632,7 +1634,7 @@ function UploadView({
   selectedPattern,
   enabledRoles,
   ownedAppliances,
-  selectedAppliance,
+  selectedAppliances,
   error,
   fileInputRef,
   onAddFiles,
@@ -1643,7 +1645,7 @@ function UploadView({
   onToggleTired,
   onSelectPattern,
   onToggleRole,
-  onChangeAppliance,
+  onToggleAppliance,
   userRequest,
   onChangeUserRequest,
   onAnalyze,
@@ -1656,7 +1658,7 @@ function UploadView({
   selectedPattern: MealPattern;
   enabledRoles: ComponentRole[];
   ownedAppliances: string[];
-  selectedAppliance: string;
+  selectedAppliances: string[];
   error: string | null;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onAddFiles: (files: FileList | File[]) => void;
@@ -1667,7 +1669,7 @@ function UploadView({
   onToggleTired: () => void;
   onSelectPattern: (p: MealPattern) => void;
   onToggleRole: (role: ComponentRole) => void;
-  onChangeAppliance: (a: string) => void;
+  onToggleAppliance: (id: string) => void;
   userRequest: string;
   onChangeUserRequest: (v: string) => void;
   onAnalyze: () => void;
@@ -1884,22 +1886,25 @@ function UploadView({
           <div className="flex gap-2 flex-wrap">
             {ownedAppliances.map((id) => {
               const meta = applianceShortLabels[id] ?? { label: id, icon: "🍴" };
+              const isSelected = selectedAppliances.includes(id);
               return (
                 <button
                   key={id}
-                  onClick={() => onChangeAppliance(id)}
+                  onClick={() => onToggleAppliance(id)}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition ${
-                    selectedAppliance === id
+                    isSelected
                       ? "bg-primary text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
                   <span>{meta.icon}</span>
                   <span>{meta.label}</span>
+                  {isSelected && <span className="text-xs opacity-75">✓</span>}
                 </button>
               );
             })}
           </div>
+          <p className="text-xs text-gray-400 mt-2">{locale === "en" ? "Select all you can use today" : "複数選択できます"}</p>
         </div>
       )}
       {ownedAppliances.length <= 1 && <div className="mb-2" />}
