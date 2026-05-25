@@ -15,6 +15,7 @@ import {
 } from "@/lib/meal-patterns";
 import { Settings, ArrowLeft, Camera, Heart, Zap, ChefHat, History, ChevronRight, MessageSquare } from "lucide-react";
 import { trackEvent, EVENTS } from "@/lib/analytics";
+import { detectIsIOSApp } from "@/lib/platform";
 
 const FEEDBACK_FORM_URLS = {
   ja: process.env.NEXT_PUBLIC_FEEDBACK_FORM_URL_JA ?? "https://forms.gle/Uc8CofTQzeM3steC7",
@@ -212,12 +213,17 @@ export default function HomePage() {
   const [loginPrompt, setLoginPrompt] = useState<{ show: boolean; reason: "favorite" | "limit" | "save_history" }>({ show: false, reason: "favorite" });
   const [shownSavePrompt, setShownSavePrompt] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showIOSLimitModal, setShowIOSLimitModal] = useState(false);
+  const [isIOSApp, setIsIOSApp] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [confirmedIngredients, setConfirmedIngredients] = useState<string[]>([]);
   const [showCamera, setShowCamera] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
   const locale = useLocale() as "ja" | "en";
   const tUpload = useTranslations("upload");
+
+  // iOS ネイティブアプリ判定（WKWebView の UA に SnapmealApp/iOS を付与）
+  useEffect(() => { setIsIOSApp(detectIsIOSApp()); }, []);
 
   // ロケールに応じたデフォルトジャンルを初回のみ適用
   useEffect(() => {
@@ -679,7 +685,8 @@ export default function HomePage() {
         } else if (type === "error") {
           const d = data as { message: string; code?: string };
           if (d.code === "usage_limit_exceeded" && process.env.NEXT_PUBLIC_BETA_MODE !== "true") {
-            setShowUpgradeModal(true);
+            if (isIOSApp) setShowIOSLimitModal(true);
+            else setShowUpgradeModal(true);
             setView("upload");
           } else {
             setError(d.message);
@@ -717,6 +724,7 @@ export default function HomePage() {
         onLogin={() => setView("login")}
         user={user}
         locale={locale}
+        isIOSApp={isIOSApp}
       />
     );
   }
@@ -879,8 +887,11 @@ export default function HomePage() {
           onClose={() => setLoginPrompt((p) => ({ ...p, show: false }))}
         />
       )}
-      {showUpgradeModal && process.env.NEXT_PUBLIC_BETA_MODE !== "true" && (
+      {showUpgradeModal && !isIOSApp && process.env.NEXT_PUBLIC_BETA_MODE !== "true" && (
         <UpgradeModal onClose={() => setShowUpgradeModal(false)} locale={locale} />
+      )}
+      {showIOSLimitModal && isIOSApp && (
+        <IOSLimitModal onClose={() => setShowIOSLimitModal(false)} />
       )}
     </>
   );
@@ -1297,6 +1308,7 @@ function SettingsView({
   onLogin,
   user,
   locale,
+  isIOSApp = false,
 }: {
   current: UserSettings;
   onSave: (s: UserSettings) => void;
@@ -1304,6 +1316,7 @@ function SettingsView({
   onLogin: () => void;
   user: import("@supabase/supabase-js").User | null;
   locale: string;
+  isIOSApp?: boolean;
 }) {
   const t = useTranslations("settings");
   const [portalLoading, setPortalLoading] = useState(false);
@@ -1465,7 +1478,7 @@ function SettingsView({
           <LanguageSwitcher />
         </div>
 
-        {user && process.env.NEXT_PUBLIC_BETA_MODE !== "true" && (
+        {user && !isIOSApp && process.env.NEXT_PUBLIC_BETA_MODE !== "true" && (
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-3">{t("current_plan")}</p>
             <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 flex items-center justify-between">
@@ -1502,7 +1515,7 @@ function SettingsView({
         >
           {t("save")}
         </button>
-        {user && planInfo?.stripe_customer_id && process.env.NEXT_PUBLIC_BETA_MODE !== "true" && (
+        {user && planInfo?.stripe_customer_id && !isIOSApp && process.env.NEXT_PUBLIC_BETA_MODE !== "true" && (
           <button
             onClick={async () => {
               setPortalLoading(true);
@@ -3213,6 +3226,47 @@ function LoginView({ onBack }: { onBack: () => void }) {
         </div>
       </div>
     </main>
+  );
+}
+
+// ─── iOS 上限通知モーダル（課金導線なし・Apple 審査対応）─────────────────────
+
+function IOSLimitModal({ onClose }: { onClose: () => void }) {
+  const t = useTranslations("iosLimit");
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(t("url")).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-8">
+      <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl">
+        <div className="text-center mb-6">
+          <p className="text-4xl mb-3">📊</p>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">{t("title")}</h3>
+          <p className="text-sm text-gray-500 leading-relaxed">{t("body")}</p>
+        </div>
+        <button
+          onClick={handleCopy}
+          className="w-full bg-gray-50 border-2 border-gray-200 rounded-2xl py-4 px-4 flex items-center justify-between mb-4 active:bg-gray-100 transition"
+        >
+          <span className="text-sm font-bold text-gray-700 tracking-wide">{t("url")}</span>
+          <span className="text-xs font-semibold text-primary ml-2 flex-shrink-0">
+            {copied ? "✓ コピー済み" : "📋 コピー"}
+          </span>
+        </button>
+        <button
+          onClick={onClose}
+          className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
+        >
+          {t("close")}
+        </button>
+      </div>
+    </div>
   );
 }
 
