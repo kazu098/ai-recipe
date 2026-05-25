@@ -74,7 +74,9 @@
     "hotcook": "Smart Cooker",
     "pan": "Pan",
     "microwave": "Microwave",
-    "oven": "Oven"
+    "oven": "Oven",
+    "timeout_error": "Analysis is taking too long. Please try again.",
+    "retry": "Try again"
   },
   "recognizing": {
     "title": "Recognizing ingredients...",
@@ -134,7 +136,8 @@
     "hard": "Advanced",
     "select": "Cook this meal",
     "next": "Show another",
-    "preparing": "Preparing another..."
+    "preparing": "Preparing another...",
+    "reanalyze_label": "Try a different style"
   },
   "recipe": {
     "generating_title": "Generating recipe...",
@@ -202,9 +205,16 @@
     "fav_body": "Log in to save and manage your favorite meals.",
     "limit_title": "You've used all free tries",
     "limit_body": "Log in to keep going.",
-    "limit_benefits": ["Keep getting meal suggestions", "Hotcook category & menu guidance", "Auto-list missing ingredients (one-tap copy)", "Manage favorites, history & family notes"],
+    "limit_benefits": [
+      "Keep getting meal suggestions",
+      "Hotcook category & menu guidance",
+      "Auto-list missing ingredients (one-tap copy)",
+      "Manage favorites, history & family notes"
+    ],
     "cta": "Log in (free)",
-    "later": "Later"
+    "later": "Later",
+    "save_title": "Your meal is ready!",
+    "save_body": "Sign in to save today's meal to your history and revisit it anytime."
   },
   "upgrade": {
     "title": "Monthly limit reached",
