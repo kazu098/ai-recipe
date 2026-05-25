@@ -23,7 +23,10 @@ export async function GET(req: NextRequest) {
   }
 
   const days = Number(req.nextUrl.searchParams.get("days") ?? "30");
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  // JSTの日境界に合わせて起点を計算（UTC+9のため -9時間してからday切り捨て→+9時間）
+  const nowJst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const startOfTodayJst = new Date(nowJst.toISOString().slice(0, 10) + "T00:00:00+09:00");
+  const since = new Date(startOfTodayJst.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
   const excludeUserId = user.id;
 
   // service_role で集計（RLS をバイパス）
