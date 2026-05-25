@@ -209,7 +209,8 @@ export default function HomePage() {
     if (typeof window === "undefined") return [];
     try { return JSON.parse(localStorage.getItem("snapmeal_disliked") ?? "[]") as string[]; } catch { return []; }
   });
-  const [loginPrompt, setLoginPrompt] = useState<{ show: boolean; reason: "favorite" | "limit" }>({ show: false, reason: "favorite" });
+  const [loginPrompt, setLoginPrompt] = useState<{ show: boolean; reason: "favorite" | "limit" | "save_history" }>({ show: false, reason: "favorite" });
+  const [shownSavePrompt, setShownSavePrompt] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [confirmedIngredients, setConfirmedIngredients] = useState<string[]>([]);
@@ -480,7 +481,8 @@ export default function HomePage() {
   // ── Phase B: alternatives (background) ─────────────────────────────────────
 
   const startAlternatives = useCallback(
-    async (ingredients: string[], meal1: Meal, sid: string | null, priorityIngredients?: string[]) => {
+    async (ingredients: string[], meal1: Meal, sid: string | null, priorityIngredients?: string[], patternOverride?: MealPattern) => {
+      const activePattern = patternOverride ?? selectedPattern;
       try {
         const res = await fetch("/api/alternatives", {
           method: "POST",
@@ -491,8 +493,8 @@ export default function HomePage() {
             meal_1_name: meal1.name,
             meal_1_type: meal1.type,
             session_id: sid,
-            meal_components: getActiveComponents(selectedPattern, enabledRoles, locale),
-            cuisine_pattern: selectedPattern.id,
+            meal_components: getActiveComponents(activePattern, enabledRoles, locale),
+            cuisine_pattern: activePattern.id,
             locale,
             appliances: selectedAppliances,
             user_request: userRequest,
@@ -576,7 +578,8 @@ export default function HomePage() {
   }, [images, user, tUpload]);
 
   // Phase A-2: 確定した食材リストで献立生成
-  const startAnalysis = useCallback(async (ingredientsToUse?: string[], priorityIngredients?: string[]) => {
+  const startAnalysis = useCallback(async (ingredientsToUse?: string[], priorityIngredients?: string[], patternOverride?: MealPattern) => {
+    const activePattern = patternOverride ?? selectedPattern;
     const useOverride = ingredientsToUse && ingredientsToUse.length > 0;
     if (!useOverride && !images.length) return;
 
@@ -595,12 +598,15 @@ export default function HomePage() {
     setMeals([]);
     setError(null);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90_000);
+
     try {
       const body: Record<string, unknown> = {
         tired_mode: tiredMode,
         meal_time: locale === "ja" ? "夕食" : "dinner",
-        meal_components: getActiveComponents(selectedPattern, enabledRoles, locale),
-        cuisine_pattern: selectedPattern.id,
+        meal_components: getActiveComponents(activePattern, enabledRoles, locale),
+        cuisine_pattern: activePattern.id,
         locale,
         appliances: settings?.appliances ?? [],
         user_request: userRequest,
@@ -626,6 +632,7 @@ export default function HomePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
 
       let capturedMeal: Meal | null = null;
@@ -634,7 +641,7 @@ export default function HomePage() {
 
       await readSSE(res, (type, data) => {
         if (type === "ingredient") {
-          if (useOverride) return; // 確認済み食材は再スキャン不要
+          if (useOverride) return;
           const d = data as { item: string };
           setStreamingIngredients((prev) => [...prev, d.item]);
         } else if (type === "meal") {
@@ -651,18 +658,23 @@ export default function HomePage() {
             genre: meal.genre,
             difficulty: meal.difficulty,
             tired_mode: tiredMode,
-            pattern: selectedPattern.id,
+            pattern: activePattern.id,
           });
+          // ② 匿名ユーザーの初回成功後にポジティブなログイン誘導
+          if (!user && !shownSavePrompt) {
+            setShownSavePrompt(true);
+            setTimeout(() => setLoginPrompt({ show: true, reason: "save_history" }), 1500);
+          }
         } else if (type === "session") {
           const d = data as { session_id: string };
           capturedSessionId = d.session_id;
           setSessionId(d.session_id);
           if (capturedMeal) {
-            startAlternatives(capturedIngredients, capturedMeal, capturedSessionId, priorityIngredients);
+            startAlternatives(capturedIngredients, capturedMeal, capturedSessionId, priorityIngredients, patternOverride);
           }
         } else if (type === "done") {
           if (capturedMeal && !capturedSessionId) {
-            startAlternatives(capturedIngredients, capturedMeal, null, priorityIngredients);
+            startAlternatives(capturedIngredients, capturedMeal, null, priorityIngredients, patternOverride);
           }
         } else if (type === "error") {
           const d = data as { message: string; code?: string };
@@ -676,10 +688,13 @@ export default function HomePage() {
         }
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : tUpload("error"));
+      const isTimeout = err instanceof Error && err.name === "AbortError";
+      setError(isTimeout ? tUpload("timeout_error") : (err instanceof Error ? err.message : tUpload("error")));
       setView("upload");
+    } finally {
+      clearTimeout(timeoutId);
     }
-  }, [images, tiredMode, selectedPattern, enabledRoles, locale, settings, userRequest, user, startAlternatives, tUpload]);
+  }, [images, tiredMode, selectedPattern, enabledRoles, locale, settings, userRequest, user, shownSavePrompt, startAlternatives, tUpload]);
 
   // ── Rendering ───────────────────────────────────────────────────────────────
 
@@ -760,6 +775,10 @@ export default function HomePage() {
           selectedPattern={selectedPattern}
           sessionId={sessionId}
           user={user}
+          onReanalyze={(pattern) => {
+            setSelectedPattern(pattern);
+            startAnalysis(allIngredients, undefined, pattern);
+          }}
         />
         {loginPrompt.show && (
           <LoginPromptModal
@@ -2698,6 +2717,7 @@ function ResultView({
   selectedPattern,
   sessionId,
   user,
+  onReanalyze,
 }: {
   meals: Meal[];
   activeMealIdx: number;
@@ -2711,6 +2731,7 @@ function ResultView({
   selectedPattern: MealPattern;
   sessionId: string | null;
   user: import("@supabase/supabase-js").User | null;
+  onReanalyze?: (pattern: MealPattern) => void;
 }) {
   const t = useTranslations("result");
   const locale = useLocale() as "ja" | "en";
@@ -2880,6 +2901,28 @@ function ResultView({
         >
           {meals.length < totalSlots && !canGoNext ? t("preparing") : t("next")}
         </button>
+
+        {onReanalyze && (
+          <div className="pt-2">
+            <p className="text-xs text-gray-400 text-center mb-2">{t("reanalyze_label")}</p>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {getOrderedPatterns(locale).map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => p.id !== selectedPattern.id && onReanalyze(p)}
+                  className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                    p.id === selectedPattern.id
+                      ? "bg-primary/10 border-primary text-primary cursor-default"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-primary hover:text-primary"
+                  }`}
+                >
+                  <span>{p.emoji}</span>
+                  <span>{p.label[locale as "ja" | "en"] ?? p.label.ja}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
@@ -2892,23 +2935,23 @@ function LoginPromptModal({
   onLogin,
   onClose,
 }: {
-  reason: "favorite" | "limit";
+  reason: "favorite" | "limit" | "save_history";
   onLogin: () => void;
   onClose: () => void;
 }) {
   const t = useTranslations("loginPrompt");
 
+  const emoji = reason === "favorite" ? "❤️" : reason === "save_history" ? "📖" : "⚡";
+  const title = reason === "favorite" ? t("fav_title") : reason === "save_history" ? t("save_title") : t("limit_title");
+  const body = reason === "favorite" ? t("fav_body") : reason === "save_history" ? t("save_body") : t("limit_body");
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-8">
       <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl">
         <div className="text-center mb-5">
-          <p className="text-4xl mb-3">{reason === "favorite" ? "❤️" : "⚡"}</p>
-          <h3 className="text-lg font-bold text-gray-900 mb-1">
-            {reason === "favorite" ? t("fav_title") : t("limit_title")}
-          </h3>
-          <p className="text-sm text-gray-500 leading-relaxed">
-            {reason === "favorite" ? t("fav_body") : t("limit_body")}
-          </p>
+          <p className="text-4xl mb-3">{emoji}</p>
+          <h3 className="text-lg font-bold text-gray-900 mb-1">{title}</h3>
+          <p className="text-sm text-gray-500 leading-relaxed">{body}</p>
         </div>
         {reason === "limit" && (
           <ul className="bg-green-50 rounded-2xl px-4 py-3 mb-5 space-y-2">
