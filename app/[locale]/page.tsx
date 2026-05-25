@@ -213,6 +213,7 @@ export default function HomePage() {
   const [loginPrompt, setLoginPrompt] = useState<{ show: boolean; reason: "favorite" | "limit" | "save_history" }>({ show: false, reason: "favorite" });
   const [shownSavePrompt, setShownSavePrompt] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showIOSLimitModal, setShowIOSLimitModal] = useState(false);
   const [isIOSApp, setIsIOSApp] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [confirmedIngredients, setConfirmedIngredients] = useState<string[]>([]);
@@ -684,7 +685,8 @@ export default function HomePage() {
         } else if (type === "error") {
           const d = data as { message: string; code?: string };
           if (d.code === "usage_limit_exceeded" && process.env.NEXT_PUBLIC_BETA_MODE !== "true") {
-            if (!isIOSApp) setShowUpgradeModal(true);
+            if (isIOSApp) setShowIOSLimitModal(true);
+            else setShowUpgradeModal(true);
             setView("upload");
           } else {
             setError(d.message);
@@ -887,6 +889,9 @@ export default function HomePage() {
       )}
       {showUpgradeModal && !isIOSApp && process.env.NEXT_PUBLIC_BETA_MODE !== "true" && (
         <UpgradeModal onClose={() => setShowUpgradeModal(false)} locale={locale} />
+      )}
+      {showIOSLimitModal && isIOSApp && (
+        <IOSLimitModal onClose={() => setShowIOSLimitModal(false)} />
       )}
     </>
   );
@@ -3221,6 +3226,47 @@ function LoginView({ onBack }: { onBack: () => void }) {
         </div>
       </div>
     </main>
+  );
+}
+
+// ─── iOS 上限通知モーダル（課金導線なし・Apple 審査対応）─────────────────────
+
+function IOSLimitModal({ onClose }: { onClose: () => void }) {
+  const t = useTranslations("iosLimit");
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(t("url")).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-8">
+      <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl">
+        <div className="text-center mb-6">
+          <p className="text-4xl mb-3">📊</p>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">{t("title")}</h3>
+          <p className="text-sm text-gray-500 leading-relaxed">{t("body")}</p>
+        </div>
+        <button
+          onClick={handleCopy}
+          className="w-full bg-gray-50 border-2 border-gray-200 rounded-2xl py-4 px-4 flex items-center justify-between mb-4 active:bg-gray-100 transition"
+        >
+          <span className="text-sm font-bold text-gray-700 tracking-wide">{t("url")}</span>
+          <span className="text-xs font-semibold text-primary ml-2 flex-shrink-0">
+            {copied ? "✓ コピー済み" : "📋 コピー"}
+          </span>
+        </button>
+        <button
+          onClick={onClose}
+          className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
+        >
+          {t("close")}
+        </button>
+      </div>
+    </div>
   );
 }
 

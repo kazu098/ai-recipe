@@ -216,6 +216,12 @@
     "save_title": "Your meal is ready!",
     "save_body": "Sign in to save today's meal to your history and revisit it anytime."
   },
+  "iosLimit": {
+    "title": "Monthly limit reached",
+    "body": "To continue using Snapmeal, open the following in your browser.",
+    "url": "app.snap-meal.com",
+    "close": "Close"
+  },
   "upgrade": {
     "title": "Monthly limit reached",
     "body": "5 min/day deciding what's for dinner? × 30 days = 2.5 hrs/month.\n¥980/mo (¥33/day) — let AI handle it all.",
