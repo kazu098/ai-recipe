@@ -952,13 +952,19 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
     );
 
   return (
-    <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto px-4 py-10">
-      <div className="mb-8 text-center">
+    <main
+      className="h-[100dvh] max-h-[100dvh] overflow-hidden bg-surface flex flex-col max-w-lg mx-auto px-4 py-5"
+      style={{
+        paddingTop: "max(20px, env(safe-area-inset-top))",
+        paddingBottom: "max(20px, env(safe-area-inset-bottom))",
+      }}
+    >
+      <div className="mb-4 text-center shrink-0">
         <h1 className="text-2xl font-bold text-gray-900 mb-1">{t("title")}</h1>
         <p className="text-sm text-gray-500">{t("subtitle")}</p>
       </div>
 
-      <div className="flex gap-2 justify-center mb-10">
+      <div className="flex gap-2 justify-center mb-6 shrink-0">
         {[1, 2, 3].map((s) => (
           <div
             key={s}
@@ -970,14 +976,14 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
       </div>
 
       {step === 1 && (
-        <div className="flex-1 flex flex-col">
-          <p className="text-lg font-semibold text-gray-800 mb-6">{t("servings_q")}</p>
+        <div className="flex-1 min-h-0 flex flex-col">
+          <p className="text-lg font-semibold text-gray-800 mb-4">{t("servings_q")}</p>
           <div className="grid grid-cols-2 gap-3">
             {[1, 2, 3, 4].map((n) => (
               <button
                 key={n}
                 onClick={() => setServings(n)}
-                className={`py-6 rounded-2xl text-xl font-bold transition ${
+                className={`py-4 sm:py-5 rounded-2xl text-xl font-bold transition ${
                   servings === n
                     ? "bg-primary text-white shadow-lg shadow-green-200"
                     : "bg-white border-2 border-gray-100 text-gray-700 hover:border-primary"
@@ -989,7 +995,7 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
           </div>
           <button
             onClick={() => setStep(2)}
-            className="w-full mt-auto pt-4 bg-primary text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-green-200 hover:opacity-90 transition"
+            className="w-full mt-auto bg-primary text-white py-3.5 rounded-2xl font-bold text-lg shadow-lg shadow-green-200 hover:opacity-90 transition"
           >
             {t("next")}
           </button>
@@ -997,15 +1003,15 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
       )}
 
       {step === 2 && (
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col">
           <p className="text-lg font-semibold text-gray-800 mb-2">{t("appliances_q")}</p>
-          <p className="text-sm text-gray-400 mb-6">{t("appliances_hint")}</p>
-          <div className="space-y-3">
+          <p className="text-sm text-gray-400 mb-4">{t("appliances_hint")}</p>
+          <div className="space-y-2">
             {applianceOptions.map(({ id, label, icon }) => (
               <button
                 key={id}
                 onClick={() => toggleAppliance(id)}
-                className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition ${
+                className={`w-full flex items-center gap-4 p-3 rounded-2xl border-2 transition ${
                   appliances.includes(id)
                     ? "border-primary bg-green-50"
                     : "border-gray-100 bg-white hover:border-gray-200"
@@ -1022,13 +1028,13 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
           <div className="flex gap-3 mt-auto pt-4">
             <button
               onClick={() => setStep(1)}
-              className="flex-1 py-4 rounded-2xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
+              className="flex-1 py-3.5 rounded-2xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
             >
               {t("back")}
             </button>
             <button
               onClick={() => setStep(3)}
-              className="flex-1 py-4 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-green-200 hover:opacity-90 transition"
+              className="flex-1 py-3.5 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-green-200 hover:opacity-90 transition"
             >
               {t("next")}
             </button>
@@ -1037,26 +1043,26 @@ function OnboardingView({ onComplete }: { onComplete: (s: UserSettings) => void 
       )}
 
       {step === 3 && (
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col">
           <p className="text-lg font-semibold text-gray-800 mb-1">{t("ng_q")}</p>
-          <p className="text-sm text-gray-400 mb-6">{t("ng_hint")}</p>
+          <p className="text-sm text-gray-400 mb-4">{t("ng_hint")}</p>
           <textarea
             value={ngFoods}
             onChange={(e) => setNgFoods(e.target.value)}
             placeholder={t("ng_placeholder")}
             className="w-full border-2 border-gray-100 rounded-2xl p-4 text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary resize-none bg-white"
-            rows={3}
+            rows={2}
           />
           <div className="flex gap-3 mt-auto pt-4">
             <button
               onClick={() => setStep(2)}
-              className="flex-1 py-4 rounded-2xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
+              className="flex-1 py-3.5 rounded-2xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
             >
               {t("back")}
             </button>
             <button
               onClick={() => onComplete({ servings, appliances, ng_foods: ngFoods })}
-              className="flex-1 py-4 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-green-200 hover:opacity-90 transition"
+              className="flex-1 py-3.5 rounded-2xl font-bold text-white bg-primary shadow-lg shadow-green-200 hover:opacity-90 transition"
             >
               {t("complete")}
             </button>
@@ -2813,7 +2819,9 @@ function ResultView({
     const dy = e.changedTouches[0].clientY - touchStartY.current;
     if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
     if (dx < 0 && canGoNext) onChangeIdx(activeMealIdx + 1);
-    if (dx > 0 && canGoPrev) onChangeIdx(activeMealIdx - 1);
+    if (dx > 0 && canGoPrev) {
+      onChangeIdx(activeMealIdx === meals.length - 1 ? 0 : activeMealIdx - 1);
+    }
   };
   const mainLabel = getComponentLabel(selectedPattern, "main", locale);
   const sideLabel = getComponentLabel(selectedPattern, "side", locale);
@@ -2823,7 +2831,12 @@ function ResultView({
   const difficultyLabel = t(difficultyKey);
 
   return (
-    <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
+    <main
+      className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      style={{ touchAction: "pan-y" }}
+    >
       <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 bg-white">
         <button onClick={onBack} className="text-gray-500 p-1 hover:text-gray-700 transition"><ArrowLeft size={20} /></button>
         <h2 className="font-bold text-gray-800 text-lg">{t("title")}</h2>
@@ -2836,11 +2849,7 @@ function ResultView({
         </button>
       </div>
 
-      <div
-        className="flex-1 overflow-y-auto px-4 py-6 space-y-5"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
         <div>
           <p className="text-xs font-semibold text-primary mb-1 uppercase tracking-wide">{mainLabel}</p>
           <p className="text-2xl font-bold text-gray-900">{meal.name}</p>
