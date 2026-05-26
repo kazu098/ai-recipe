@@ -89,7 +89,7 @@
   "analyzing": {
     "scanning": "Scanning ingredients...",
     "generating": "🍳 Planning your meal...",
-    "generating_with_history": "🧠 Personalizing based on your family's history..."
+    "generating_with_history": "🧠 Learning your preferences..."
   },
   "favorites": {
     "title": "Favorites",
@@ -143,7 +143,7 @@
     "next": "Show another",
     "preparing": "Preparing another...",
     "reanalyze_label": "Try a different style",
-    "history_badge": "🧠 Personalized for your family"
+    "history_badge": "🧠 Tailored to your taste"
   },
   "recipe": {
     "generating_title": "Generating recipe...",
