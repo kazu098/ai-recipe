@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { getAuthUserId, saveMealHistory } from "@/lib/supabase/db";
 
 type ActiveComp = { role: string; label: string };
+type MealAudience = "family" | "kids" | "adults";
 
 const ALWAYS_AVAILABLE_SEASONINGS_JA = `
 醤油・塩・胡椒・砂糖・みりん・料理酒・酢・サラダ油・ごま油・バター・マヨネーズ・ケチャップ
@@ -51,6 +52,61 @@ function buildCuisineNote(cuisine_pattern: string, locale: string): string {
   return "\n" + (isEn ? note.en : note.ja);
 }
 
+function buildAudienceSection(audience: MealAudience, locale: string, tiredMode: boolean): string {
+  const selected: MealAudience = ["family", "kids", "adults"].includes(audience) ? audience : "family";
+  if (locale === "en") {
+    const base = tiredMode
+      ? "- Low-energy mode: keep it fast and low-effort, while still offering a different repertoire from the first suggestion."
+      : "- Normal mode: prioritize variety, balance, and a dinner that feels acceptable for the whole household.";
+    const details: Record<MealAudience, string[]> = {
+      family: [
+        "- Target: a household dinner for parents and children, not solo cooking.",
+        "- Prefer a child-friendly base seasoning; adults can add spice or condiments after serving.",
+        "- Avoid spicy, bitter, or very strong flavors unless requested.",
+        base,
+      ],
+      kids: [
+        "- Target: children first, while still acceptable for adults.",
+        "- Use mild seasoning, soft textures, bite-sized cuts, and familiar flavors.",
+        "- Avoid spicy or strongly aromatic dishes unless requested.",
+        base,
+      ],
+      adults: [
+        "- Target: adults in the household. Child constraints can be relaxed.",
+        "- More varied cuisines and stronger flavors are acceptable if they match the ingredients.",
+        "- Still suggest a practical home dinner, not a solo convenience meal unless requested.",
+        base,
+      ],
+    };
+    return `\n[Meal Audience]\n${details[selected].join("\n")}\n`;
+  }
+
+  const base = tiredMode
+    ? "- 疲れたモードでは、時短・低負荷を優先しつつ、1案目と違うレパートリーを出すこと。"
+    : "- 通常モードでは、家族の夕食としてのバランス・満足感・レパートリーの広がりを優先すること。";
+  const details: Record<MealAudience, string[]> = {
+    family: [
+      "- 対象: 子どもを含む家庭の夕食。一人暮らし向けの自分用簡単飯ではない。",
+      "- 子どもも食べやすいベースの味付けにし、大人は後から辛味・薬味・調味料で調整できる料理を優先。",
+      "- リクエストがない限り、辛すぎる・苦味が強い・香りが強すぎる料理は避ける。",
+      base,
+    ],
+    kids: [
+      "- 対象: 子ども優先。大人も食べられるが、子どもの食べやすさを最優先。",
+      "- 辛さ控えめ、やわらかめ、一口サイズ、なじみのある味を優先。",
+      "- リクエストがない限り、辛味やクセの強い香味野菜を主役にしない。",
+      base,
+    ],
+    adults: [
+      "- 対象: 大人向け。子ども向け制約はゆるめてよい。",
+      "- 食材に合うなら、少し大人っぽい味付けや異国料理も選んでよい。",
+      "- ただし家庭の夕食として現実的な料理にし、一人向けの手抜き飯には寄せすぎない。",
+      base,
+    ],
+  };
+  return `\n【食べる人】\n${details[selected].join("\n")}\n`;
+}
+
 function buildPrompt(
   ingredients: string[],
   tired_mode: boolean,
@@ -60,6 +116,7 @@ function buildPrompt(
   locale: string,
   has_hotcook: boolean,
   user_request: string,
+  meal_audience: MealAudience = "family",
   cuisine_pattern = "japanese",
   priority_ingredients: string[] = []
 ): string {
@@ -87,6 +144,17 @@ function buildPrompt(
       ? `\n[Priority ingredients — MUST USE these in BOTH suggested dishes]: ${priority_ingredients.join(", ")}\n`
       : `\n【優先使用食材 — 両方の提案料理に必ずこれらを使うこと】: ${priority_ingredients.join("、")}\n`
     : "";
+  const ingredientSelectionRule = isEn
+    ? `- Fridge contents are candidate ingredients, not a checklist. Do NOT try to use all recognized ingredients.
+- Select only the ingredients that naturally fit each dish. It is OK to leave recognized ingredients unused.
+- For each main dish, usually use 1-4 core fridge ingredients unless the dish naturally needs more.
+- Do NOT invent non-pantry ingredients. Without a user request, each dish name and dish content must be explainable using only matched_ingredients + pantry staples.
+- matched_ingredients must be a subset of the recognized fridge list and must include only ingredients actually used in that dish.`
+    : `- 認識した食材は「候補」であり、全部使う必要はありません。全食材を無理に使い切ろうとしないこと。
+- 各料理に自然に合う食材だけを選んで使うこと。認識食材が余っても問題ありません。
+- 各メイン料理では、基本的に冷蔵庫食材を1〜4個程度に絞ること（料理として自然な場合だけ増やしてよい）。
+- 認識外の肉・魚・野菜・豆腐などを勝手に前提にした料理名にしないこと。リクエストがない場合、各料理名と料理内容は matched_ingredients + 常備調味料だけで説明できること。
+- matched_ingredients は認識済み冷蔵庫食材の部分集合にし、その料理に実際に使う食材だけを入れること。`;
 
   if (isEn) {
     const componentNote = [
@@ -129,7 +197,7 @@ ${ingredientList}
 ${priorityNote}
 
 Meal structure: ${mainLabel}${componentNote ? ` + ${componentNote}` : " only"}
-${hotcookNote}${buildCuisineNote(cuisine_pattern, locale)}
+${buildAudienceSection(meal_audience, locale, tired_mode)}${hotcookNote}${buildCuisineNote(cuisine_pattern, locale)}
 
 "${meal_1_name}" (${meal_1_type}) has already been suggested.
 Suggest 2 more ${mainLabel} dishes using the above ingredients${hasUserRequest ? " and the user request" : " and pantry staples"}.
@@ -140,6 +208,7 @@ Requirements:
 - Choose a different genre, main ingredient, and cooking method from "${meal_1_name}"
 
 [Required rules]
+${ingredientSelectionRule}
 ${missingRule}
 ${soupComp ? "- soup must be a liquid dish (miso soup, broth, stew). Never a salad or stir-fry." : ""}
 ${reminderBlock}
@@ -219,7 +288,7 @@ ${ingredientList}
 ${priorityNote}
 
 献立構成: ${mainLabel}${componentNote ? `・${componentNote}` : "のみ"}
-${hotcookNote}${buildCuisineNote(cuisine_pattern, locale)}
+${buildAudienceSection(meal_audience, locale, tired_mode)}${hotcookNote}${buildCuisineNote(cuisine_pattern, locale)}
 
 「${meal_1_name}」（${meal_1_type}）は既に提案済みです。
 上記の食材${hasUserRequest ? "とユーザーリクエスト" : "と常備調味料だけ"}で作れる${mainLabel}をあと2案提案してください。
@@ -230,6 +299,7 @@ ${hotcookNote}${buildCuisineNote(cuisine_pattern, locale)}
 - 「${meal_1_name}」と異なるジャンル・主食材・調理法にすること
 
 【必須ルール】
+${ingredientSelectionRule}
 ${missingIngredientsRule}
 ${soupComp ? `- soupには必ず味噌汁・スープ・汁物など液体を含む料理を設定すること。サラダ・炒め物・副菜は絶対不可` : ""}
 ${reminderBlock}
@@ -280,6 +350,7 @@ export async function POST(req: NextRequest) {
     cuisine_pattern = "japanese",
     locale = "ja",
     appliances = [],
+    meal_audience = "family",
     user_request = "",
     priority_ingredients = [],
   } = await req.json();
@@ -316,6 +387,7 @@ export async function POST(req: NextRequest) {
           locale,
           has_hotcook,
           user_request,
+          meal_audience as MealAudience,
           cuisine_pattern as string,
           priority_ingredients as string[]
         );

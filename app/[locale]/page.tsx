@@ -26,6 +26,7 @@ const FEEDBACK_FORM_URLS = {
 
 type AppView = "onboarding" | "upload" | "recognizing" | "ingredient-confirm" | "analyzing" | "result" | "recipe" | "settings" | "login" | "history" | "favorites";
 type AnalyzingPhase = "scanning" | "generating";
+type MealAudience = "family" | "kids" | "adults";
 
 type SubDish = {
   name: string;
@@ -204,6 +205,7 @@ export default function HomePage() {
   const [selectedAppliances, setSelectedAppliances] = useState<string[]>(["pan"]);
   const [selectedPattern, setSelectedPattern] = useState<MealPattern>(getDefaultPattern("ja"));
   const [enabledRoles, setEnabledRoles] = useState<ComponentRole[]>([]);
+  const [mealAudience, setMealAudience] = useState<MealAudience>("family");
   const [userRequest, setUserRequest] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [dislikedMeals, setDislikedMeals] = useState<string[]>(() => {
@@ -503,6 +505,7 @@ export default function HomePage() {
             cuisine_pattern: activePattern.id,
             locale,
             appliances: selectedAppliances,
+            meal_audience: mealAudience,
             user_request: userRequest,
             ...(priorityIngredients?.length ? { priority_ingredients: priorityIngredients } : {}),
           }),
@@ -517,7 +520,7 @@ export default function HomePage() {
         // Phase B failure is silent — first suggestion already shown
       }
     },
-    [tiredMode, selectedPattern, enabledRoles, locale, settings, userRequest]
+    [tiredMode, selectedPattern, enabledRoles, locale, selectedAppliances, mealAudience, userRequest]
   );
 
   // ── Phase A: analyze ────────────────────────────────────────────────────────
@@ -615,6 +618,7 @@ export default function HomePage() {
         cuisine_pattern: activePattern.id,
         locale,
         appliances: settings?.appliances ?? [],
+        meal_audience: mealAudience,
         user_request: userRequest,
         household_profile: {
           has_children: settings?.has_children,
@@ -701,7 +705,7 @@ export default function HomePage() {
     } finally {
       clearTimeout(timeoutId);
     }
-  }, [images, tiredMode, selectedPattern, enabledRoles, locale, settings, userRequest, user, shownSavePrompt, startAlternatives, tUpload]);
+  }, [images, tiredMode, selectedPattern, enabledRoles, locale, settings, mealAudience, userRequest, user, shownSavePrompt, startAlternatives, tUpload]);
 
   // ── Rendering ───────────────────────────────────────────────────────────────
 
@@ -845,6 +849,7 @@ export default function HomePage() {
       <UploadView
         images={images}
         tiredMode={tiredMode}
+        mealAudience={mealAudience}
         selectedPattern={selectedPattern}
         enabledRoles={enabledRoles}
         ownedAppliances={settings?.appliances ?? []}
@@ -857,6 +862,7 @@ export default function HomePage() {
         onOpenCamera={() => setShowCamera(true)}
         onCloseCamera={() => setShowCamera(false)}
         onToggleTired={() => setTiredMode((v) => !v)}
+        onSelectAudience={setMealAudience}
         onSelectPattern={(p) => {
           setSelectedPattern(p);
           setEnabledRoles([]);
@@ -1663,6 +1669,7 @@ function WebCameraModal({ onCapture, onClose }: { onCapture: (file: File) => voi
 function UploadView({
   images,
   tiredMode,
+  mealAudience,
   selectedPattern,
   enabledRoles,
   ownedAppliances,
@@ -1675,6 +1682,7 @@ function UploadView({
   onOpenCamera,
   onCloseCamera,
   onToggleTired,
+  onSelectAudience,
   onSelectPattern,
   onToggleRole,
   onToggleAppliance,
@@ -1687,6 +1695,7 @@ function UploadView({
 }: {
   images: ImageItem[];
   tiredMode: boolean;
+  mealAudience: MealAudience;
   selectedPattern: MealPattern;
   enabledRoles: ComponentRole[];
   ownedAppliances: string[];
@@ -1699,6 +1708,7 @@ function UploadView({
   onOpenCamera: () => void;
   onCloseCamera: () => void;
   onToggleTired: () => void;
+  onSelectAudience: (audience: MealAudience) => void;
   onSelectPattern: (p: MealPattern) => void;
   onToggleRole: (role: ComponentRole) => void;
   onToggleAppliance: (id: string) => void;
@@ -1719,6 +1729,11 @@ function UploadView({
     microwave: { label: t("microwave"), icon: "📦" },
     oven: { label: t("oven"), icon: "🔥" },
   };
+  const audienceOptions: Array<{ id: MealAudience; label: string }> = [
+    { id: "family", label: t("audience_family") },
+    { id: "kids", label: t("audience_kids") },
+    { id: "adults", label: t("audience_adults") },
+  ];
 
   return (
     <main className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto">
@@ -1867,6 +1882,25 @@ function UploadView({
           >
             <ChefHat size={14} />{t("energized")}
           </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
+        <p className="text-sm font-semibold text-gray-700 mb-3">{t("audience_q")}</p>
+        <div className="grid grid-cols-3 gap-2">
+          {audienceOptions.map((option) => (
+            <button
+              key={option.id}
+              onClick={() => onSelectAudience(option.id)}
+              className={`py-2.5 rounded-xl text-sm font-semibold transition ${
+                mealAudience === option.id
+                  ? "bg-primary text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
       </div>
 
