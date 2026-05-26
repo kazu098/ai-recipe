@@ -44,6 +44,9 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     // Exclude: API routes, Next.js internals, static files, PWA files
-    "/((?!api|_next/static|_next/image|favicon.ico|sw.js|workbox-.*|manifest\\.json|\\.well-known|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // swe-worker-*.js must be excluded — @ducanh2912/next-pwa generates this filename,
+    // and without exclusion the i18n middleware redirects it to /ja/swe-worker-*.js (404),
+    // preventing SW updates and causing stale-cache crashes on new deployments.
+    "/((?!api|_next/static|_next/image|favicon.ico|sw.js|swe-worker-.*|workbox-.*|manifest\\.json|\\.well-known|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
