@@ -207,6 +207,7 @@ export default function HomePage() {
   const [enabledRoles, setEnabledRoles] = useState<ComponentRole[]>([]);
   const [mealAudience, setMealAudience] = useState<MealAudience>("family");
   const [userRequest, setUserRequest] = useState("");
+  const [historyUsed, setHistoryUsed] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [dislikedMeals, setDislikedMeals] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
@@ -604,6 +605,7 @@ export default function HomePage() {
     setView("analyzing");
     setAnalyzingPhase(useOverride ? "generating" : "scanning");
     setStreamingIngredients(useOverride ? ingredientsToUse! : []);
+    setHistoryUsed(false);
     setMeals([]);
     setError(null);
 
@@ -655,10 +657,11 @@ export default function HomePage() {
           const d = data as { item: string };
           setStreamingIngredients((prev) => [...prev, d.item]);
         } else if (type === "meal") {
-          const d = data as { meal: Meal; ingredients: string[] };
+          const d = data as { meal: Meal; ingredients: string[]; history_used?: boolean };
           const meal = d.meal;
           capturedMeal = meal;
           capturedIngredients = d.ingredients;
+          setHistoryUsed(d.history_used ?? false);
           setMeals([meal]);
           setAllIngredients(d.ingredients);
           setActiveMealIdx(0);
@@ -756,6 +759,7 @@ export default function HomePage() {
       <AnalyzingView
         phase={analyzingPhase}
         ingredients={streamingIngredients}
+        hasHistory={!!user}
       />
     );
   }
@@ -777,6 +781,7 @@ export default function HomePage() {
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
           dislikedMeals={dislikedMeals}
+          hasHistory={historyUsed}
           onDislikeMeal={(name) => {
             setDislikedMeals((prev) => {
               const next = prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name];
@@ -2206,11 +2211,15 @@ function IngredientConfirmView({
 function AnalyzingView({
   phase,
   ingredients,
+  hasHistory,
 }: {
   phase: AnalyzingPhase;
   ingredients: string[];
+  hasHistory?: boolean;
 }) {
   const t = useTranslations("analyzing");
+
+  const generatingLabel = hasHistory ? t("generating_with_history") : t("generating");
 
   return (
     <main className="min-h-screen bg-surface flex flex-col items-center justify-center max-w-lg mx-auto px-6">
@@ -2218,7 +2227,7 @@ function AnalyzingView({
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-lg font-semibold text-gray-800">
-            {phase === "scanning" ? t("scanning") : t("generating")}
+            {phase === "scanning" ? t("scanning") : generatingLabel}
           </p>
         </div>
 
@@ -2765,6 +2774,7 @@ function ResultView({
   sessionId,
   user,
   onReanalyze,
+  hasHistory,
 }: {
   meals: Meal[];
   activeMealIdx: number;
@@ -2779,6 +2789,7 @@ function ResultView({
   sessionId: string | null;
   user: import("@supabase/supabase-js").User | null;
   onReanalyze?: (pattern: MealPattern) => void;
+  hasHistory?: boolean;
 }) {
   const t = useTranslations("result");
   const locale = useLocale() as "ja" | "en";
@@ -2843,6 +2854,11 @@ function ResultView({
       >
         <div>
           <p className="text-xs font-semibold text-primary mb-1 uppercase tracking-wide">{mainLabel}</p>
+          {hasHistory && (
+            <div className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-bold px-2.5 py-1 rounded-full mb-2">
+              {t("history_badge")}
+            </div>
+          )}
           <p className="text-2xl font-bold text-gray-900">{meal.name}</p>
           <p className="text-gray-500 text-sm mt-1">{meal.reason}</p>
           <div className="flex gap-3 mt-2">

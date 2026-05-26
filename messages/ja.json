@@ -88,7 +88,8 @@
   },
   "analyzing": {
     "scanning": "食材をスキャン中...",
-    "generating": "🍳 献立を考えています..."
+    "generating": "🍳 献立を考えています...",
+    "generating_with_history": "🧠 家族の記録を参照して最適化中..."
   },
   "favorites": {
     "title": "お気に入り",
@@ -141,7 +142,8 @@
     "select": "この献立で作る",
     "next": "別の献立を見る",
     "preparing": "別の献立を準備中...",
-    "reanalyze_label": "別のジャンルで再提案"
+    "reanalyze_label": "別のジャンルで再提案",
+    "history_badge": "🧠 家族の記録を参照済み"
   },
   "recipe": {
     "generating_title": "レシピを生成中...",
