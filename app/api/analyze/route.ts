@@ -517,7 +517,7 @@ Output JSON only (no code block, no explanation):
   "meal": {
     "type": "${tired_mode ? "quick" : "best"}",
     "name": "Dish name featuring the requested ingredient/dish",
-    "reason": "Why this dish (1 sentence, under 30 words)",
+    "reason": "${history.length > 0 ? "Why this dish — mention how it differs from recent meals or fits family preferences (1 sentence, under 30 words)" : "Why this dish (1 sentence, under 30 words)"}",
     "time_minutes": number,
     "difficulty": "easy|medium|hard",
     "matched_ingredients": ["fridge items used in the dish"],
@@ -556,7 +556,7 @@ Output JSON only (no code block, no explanation):
   "meal": {
     "type": "${tired_mode ? "quick" : "best"}",
     "name": "${mainLabel} dish name",
-    "reason": "Why this dish (1 sentence, under 30 words)",
+    "reason": "${history.length > 0 ? "Why this dish — mention how it differs from recent meals or fits family preferences (1 sentence, under 30 words)" : "Why this dish (1 sentence, under 30 words)"}",
     "time_minutes": number,
     "difficulty": "easy|medium|hard",
     "matched_ingredients": ["fridge items used in the dish"],
@@ -628,7 +628,7 @@ ${soupComp ? `- soupには必ず味噌汁・スープ・汁物など液体を含
   "meal": {
     "type": "${tired_mode ? "quick" : "best"}",
     "name": "リクエストの指定食材/料理を使った料理名",
-    "reason": "なぜこの料理か（1文・30字以内）",
+    "reason": "${history.length > 0 ? "なぜこの料理か。最近の献立との違い・家族の好みを反映した点を含めること（1文・30字以内）" : "なぜこの料理か（1文・30字以内）"}",
     "time_minutes": 数値,
     "difficulty": "easy|medium|hard",
     "matched_ingredients": ["冷蔵庫食材のうち料理に使うもの"],
@@ -667,7 +667,7 @@ ${soupComp ? `- soupには必ず味噌汁・スープ・汁物など液体を含
   "meal": {
     "type": "${tired_mode ? "quick" : "best"}",
     "name": "${mainLabel}名",
-    "reason": "なぜこのメインか（1文・30字以内）",
+    "reason": "${history.length > 0 ? "なぜこのメインか。最近の献立との違い・家族の好みを反映した点を含めること（1文・30字以内）" : "なぜこのメインか（1文・30字以内）"}",
     "time_minutes": 数値,
     "difficulty": "easy|medium|hard",
     "matched_ingredients": ["今ある食材1", ...],
@@ -894,7 +894,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        send("meal", { meal: parsed.meal, ingredients: parsed.ingredients });
+        send("meal", { meal: parsed.meal, ingredients: parsed.ingredients, history_used: history.length > 0 });
         if (sessionId) send("session", { session_id: sessionId });
         send("done", {});
       } catch (err) {

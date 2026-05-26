@@ -88,7 +88,8 @@
   },
   "analyzing": {
     "scanning": "Scanning ingredients...",
-    "generating": "🍳 Planning your meal..."
+    "generating": "🍳 Planning your meal...",
+    "generating_with_history": "🧠 Learning your preferences..."
   },
   "favorites": {
     "title": "Favorites",
@@ -141,7 +142,8 @@
     "select": "Cook this meal",
     "next": "Show another",
     "preparing": "Preparing another...",
-    "reanalyze_label": "Try a different style"
+    "reanalyze_label": "Try a different style",
+    "history_badge": "🧠 Tailored to your taste"
   },
   "recipe": {
     "generating_title": "Generating recipe...",
