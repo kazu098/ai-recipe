@@ -1345,6 +1345,7 @@ function SettingsView({
   const [tastePreference, setTastePreference] = useState<"light" | "normal" | "rich">(current.taste_preference ?? "normal");
   const [cookingPolicy, setCookingPolicy] = useState(current.cooking_policy ?? "");
   const [planInfo, setPlanInfo] = useState<{ plan: string; stripe_customer_id: string | null } | null>(null);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -1555,16 +1556,24 @@ function SettingsView({
           </button>
         )}
         {user ? (
-          <button
-            onClick={async () => {
-              const supabase = createClient();
-              await supabase.auth.signOut();
-              onBack();
-            }}
-            className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
-          >
-            {t("logout")}
-          </button>
+          <>
+            <button
+              onClick={() => setShowDeleteAccountModal(true)}
+              className="w-full text-gray-400 text-xs py-2 hover:text-gray-500 transition underline underline-offset-2"
+            >
+              {t("delete_account")}
+            </button>
+            <button
+              onClick={async () => {
+                const supabase = createClient();
+                await supabase.auth.signOut();
+                onBack();
+              }}
+              className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition"
+            >
+              {t("logout")}
+            </button>
+          </>
         ) : (
           <button
             onClick={onLogin}
@@ -1574,6 +1583,45 @@ function SettingsView({
           </button>
         )}
       </div>
+      {showDeleteAccountModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 py-6">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-3">{t("delete_account_title")}</h3>
+            <p className="text-sm text-gray-600 leading-relaxed mb-4">
+              {t("delete_account_body")}
+            </p>
+            <ul className="space-y-2 text-sm text-gray-600 mb-6">
+              {[
+                t("delete_account_item_account"),
+                t("delete_account_item_history"),
+                t("delete_account_item_settings"),
+                t("delete_account_item_retention"),
+              ].map((item) => (
+                <li key={item} className="flex gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 flex-none rounded-full bg-red-400" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  window.location.href = `/${locale}/account-deletion`;
+                }}
+                className="w-full rounded-2xl bg-red-500 py-3 text-sm font-bold text-white shadow-lg shadow-red-100 hover:bg-red-600 transition"
+              >
+                {t("delete_account_continue")}
+              </button>
+              <button
+                onClick={() => setShowDeleteAccountModal(false)}
+                className="w-full rounded-2xl py-3 text-sm font-semibold text-gray-500 hover:bg-gray-50 transition"
+              >
+                {t("delete_account_cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

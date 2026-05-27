@@ -50,7 +50,16 @@
     "taste_rich": "Bold",
     "cooking_policy_q": "Cooking notes",
     "cooking_policy_hint": "e.g. quick meals, no spice, good at fish",
-    "cooking_policy_placeholder": "Free notes"
+    "cooking_policy_placeholder": "Free notes",
+    "delete_account": "Delete account",
+    "delete_account_title": "Delete your account?",
+    "delete_account_body": "This will open the account deletion request page. After deletion, associated data stored by Snapmeal cannot be restored.",
+    "delete_account_item_account": "Account information, including email address and user ID, will be deleted",
+    "delete_account_item_history": "Meal history, selected meals, feedback, and favorites will be deleted",
+    "delete_account_item_settings": "Household settings, allergy or avoided-food settings, and appliance preferences will be deleted",
+    "delete_account_item_retention": "Some information may be retained for legal, payment, or security purposes where required",
+    "delete_account_continue": "Open deletion request page",
+    "delete_account_cancel": "Cancel"
   },
   "upload": {
     "error": "Something went wrong",
