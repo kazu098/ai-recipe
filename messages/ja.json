@@ -50,7 +50,16 @@
     "taste_rich": "濃いめ",
     "cooking_policy_q": "料理方針メモ",
     "cooking_policy_hint": "例：時短優先、辛味なし、魚料理が得意",
-    "cooking_policy_placeholder": "自由にメモしてください"
+    "cooking_policy_placeholder": "自由にメモしてください",
+    "delete_account": "アカウントを削除",
+    "delete_account_title": "アカウントを削除しますか？",
+    "delete_account_body": "アカウント削除手続きページを開きます。削除後はSnapmealに保存されている関連データを元に戻せません。",
+    "delete_account_item_account": "アカウント情報（メールアドレス、ユーザーID）が削除対象になります",
+    "delete_account_item_history": "献立履歴、選択履歴、フィードバック、お気に入りが削除対象になります",
+    "delete_account_item_settings": "家族設定、アレルギー・NG食材、調理器具設定が削除対象になります",
+    "delete_account_item_retention": "法令・決済・セキュリティ上必要な情報は一定期間保持される場合があります",
+    "delete_account_continue": "削除手続きページを開く",
+    "delete_account_cancel": "キャンセル"
   },
   "upload": {
     "error": "エラーが発生しました",
