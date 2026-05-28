@@ -51,6 +51,9 @@ export async function trackEvent(
 // ─── イベント名定数 ────────────────────────────────────────────────────────────
 
 export const EVENTS = {
+  ONBOARDING_STEP_1:     "onboarding_step_1",
+  ONBOARDING_STEP_2:     "onboarding_step_2",
+  ONBOARDING_COMPLETED:  "onboarding_completed",
   PHOTO_UPLOADED:        "photo_uploaded",
   ANALYSIS_STARTED:      "analysis_started",
   INGREDIENT_CONFIRMED:  "ingredient_confirmed",
