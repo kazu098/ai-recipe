@@ -2122,6 +2122,10 @@ function IngredientConfirmView({
 
   const handleConfirm = () => {
     const priority = items.filter((item) => prioritized.has(item));
+    trackEvent(EVENTS.INGREDIENT_CONFIRMED, {
+      ingredient_count: items.length,
+      priority_count: priority.length,
+    });
     onConfirm(items, priority);
   };
 
