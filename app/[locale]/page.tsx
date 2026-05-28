@@ -217,6 +217,7 @@ export default function HomePage() {
   const [shownSavePrompt, setShownSavePrompt] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showIOSLimitModal, setShowIOSLimitModal] = useState(false);
+  const [showSettingsNudge, setShowSettingsNudge] = useState(false);
   const [isIOSApp, setIsIOSApp] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [confirmedIngredients, setConfirmedIngredients] = useState<string[]>([]);
@@ -245,7 +246,8 @@ export default function HomePage() {
         setSettings(s);
         setSelectedAppliances(defaultAppliances(s));
       } else {
-        setView("onboarding");
+        const defaults: UserSettings = { servings: 2, appliances: ["pan"], ng_foods: "" };
+        setSettings(defaults);
       }
       const savedFavorites = localStorage.getItem("snapmeal_favorites");
       if (savedFavorites) {
@@ -387,6 +389,17 @@ export default function HomePage() {
       trackEvent(EVENTS.UPGRADE_MODAL_SHOWN);
     }
   }, [showUpgradeModal]);
+
+  useEffect(() => {
+    if (view === "result") {
+      const hasCustomSettings = !!localStorage.getItem("snapmeal_settings");
+      const hasShownNudge = !!localStorage.getItem("snapmeal_shown_settings_nudge");
+      if (!hasCustomSettings && !hasShownNudge) {
+        setShowSettingsNudge(true);
+        localStorage.setItem("snapmeal_shown_settings_nudge", "1");
+      }
+    }
+  }, [view]);
 
   // ── Image handling ──────────────────────────────────────────────────────────
 
@@ -804,6 +817,12 @@ export default function HomePage() {
             onClose={() => setLoginPrompt((p) => ({ ...p, show: false }))}
           />
         )}
+        {showSettingsNudge && (
+          <SettingsNudgeBanner
+            onOpen={() => { setShowSettingsNudge(false); setView("settings"); }}
+            onDismiss={() => setShowSettingsNudge(false)}
+          />
+        )}
       </>
     );
   }
@@ -905,6 +924,36 @@ export default function HomePage() {
         <IOSLimitModal onClose={() => setShowIOSLimitModal(false)} />
       )}
     </>
+  );
+}
+
+// ─── Settings nudge banner ────────────────────────────────────────────────────
+
+function SettingsNudgeBanner({ onOpen, onDismiss }: { onOpen: () => void; onDismiss: () => void }) {
+  return (
+    <div className="fixed bottom-24 left-0 right-0 z-40 flex justify-center px-4 pointer-events-none">
+      <div className="bg-white border border-primary/30 rounded-2xl shadow-lg px-4 py-3 flex items-center gap-3 max-w-sm w-full pointer-events-auto">
+        <span className="text-xl flex-shrink-0">⚙️</span>
+        <p className="text-xs text-gray-700 flex-1 leading-snug">
+          人数や調理器具を設定すると提案精度が上がります
+        </p>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={onOpen}
+            className="text-xs font-bold text-primary hover:text-primary-dark transition whitespace-nowrap"
+          >
+            設定する
+          </button>
+          <button
+            onClick={onDismiss}
+            className="text-gray-300 hover:text-gray-500 transition text-lg leading-none"
+            aria-label="閉じる"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
