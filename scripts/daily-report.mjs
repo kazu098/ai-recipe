@@ -5,17 +5,17 @@
  *
  * Required env vars:
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
- *   GA4_PROPERTY_ID, GA4_SERVICE_ACCOUNT_KEY (JSON string)
+ *   GA4_PROPERTY_ID, GA4_REFRESH_TOKEN, GA4_CLIENT_ID, GA4_CLIENT_SECRET
  *   SLACK_WEBHOOK_URL
  */
-
-import { createSign } from 'node:crypto';
 
 const {
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
   GA4_PROPERTY_ID,
-  GA4_SERVICE_ACCOUNT_KEY,
+  GA4_REFRESH_TOKEN,
+  GA4_CLIENT_ID,
+  GA4_CLIENT_SECRET,
   SLACK_WEBHOOK_URL,
 } = process.env;
 
@@ -36,34 +36,23 @@ function getYesterdayJst() {
   };
 }
 
-// ── Google Service Account Auth ────────────────────────────────────
+// ── Google OAuth Refresh Token Auth ───────────────────────────────
 
 async function getGoogleAccessToken() {
-  const key = JSON.parse(GA4_SERVICE_ACCOUNT_KEY);
-  const now = Math.floor(Date.now() / 1000);
-  const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
-  const payload = Buffer.from(JSON.stringify({
-    iss: key.client_email,
-    scope: 'https://www.googleapis.com/auth/analytics.readonly',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  })).toString('base64url');
-  const signer = createSign('RSA-SHA256');
-  signer.write(`${header}.${payload}`);
-  signer.end();
-  const sig = signer.sign(key.private_key, 'base64url');
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: `${header}.${payload}.${sig}`,
+      grant_type: 'refresh_token',
+      refresh_token: GA4_REFRESH_TOKEN,
+      client_id: GA4_CLIENT_ID,
+      client_secret: GA4_CLIENT_SECRET,
     }),
   });
   const data = await res.json();
   if (!data.access_token) throw new Error(`Google auth failed: ${JSON.stringify(data)}`);
   return data.access_token;
+
 }
 
 // ── GA4 Data API ───────────────────────────────────────────────────
