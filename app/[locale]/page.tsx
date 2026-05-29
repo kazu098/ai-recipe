@@ -490,7 +490,7 @@ export default function HomePage() {
   // ── Phase B: alternatives (background) ─────────────────────────────────────
 
   const startAlternatives = useCallback(
-    async (ingredients: string[], meal1: Meal, sid: string | null, priorityIngredients?: string[], patternOverride?: MealPattern) => {
+    async (ingredients: string[], meal1: Meal, sid: string | null, priorityIngredients?: string[], patternOverride?: MealPattern, userRequestOverride?: string) => {
       const activePattern = patternOverride ?? selectedPattern;
       try {
         const res = await fetch("/api/alternatives", {
@@ -507,7 +507,7 @@ export default function HomePage() {
             locale,
             appliances: selectedAppliances,
             meal_audience: mealAudience,
-            user_request: userRequest,
+            user_request: userRequestOverride ?? userRequest,
             ...(priorityIngredients?.length ? { priority_ingredients: priorityIngredients } : {}),
           }),
         });
@@ -588,7 +588,7 @@ export default function HomePage() {
   }, [images, user, tUpload]);
 
   // Phase A-2: 確定した食材リストで献立生成
-  const startAnalysis = useCallback(async (ingredientsToUse?: string[], priorityIngredients?: string[], patternOverride?: MealPattern) => {
+  const startAnalysis = useCallback(async (ingredientsToUse?: string[], priorityIngredients?: string[], patternOverride?: MealPattern, userRequestOverride?: string) => {
     const activePattern = patternOverride ?? selectedPattern;
     const useOverride = ingredientsToUse && ingredientsToUse.length > 0;
     if (!useOverride && !images.length) return;
@@ -611,6 +611,7 @@ export default function HomePage() {
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 90_000);
+    const effectiveUserRequest = userRequestOverride ?? userRequest;
 
     try {
       const body: Record<string, unknown> = {
@@ -621,7 +622,7 @@ export default function HomePage() {
         locale,
         appliances: settings?.appliances ?? [],
         meal_audience: mealAudience,
-        user_request: userRequest,
+        user_request: effectiveUserRequest,
         household_profile: {
           has_children: settings?.has_children,
           children_age_note: settings?.children_age_note,
@@ -683,11 +684,11 @@ export default function HomePage() {
           capturedSessionId = d.session_id;
           setSessionId(d.session_id);
           if (capturedMeal) {
-            startAlternatives(capturedIngredients, capturedMeal, capturedSessionId, priorityIngredients, patternOverride);
+            startAlternatives(capturedIngredients, capturedMeal, capturedSessionId, priorityIngredients, patternOverride, effectiveUserRequest);
           }
         } else if (type === "done") {
           if (capturedMeal && !capturedSessionId) {
-            startAlternatives(capturedIngredients, capturedMeal, null, priorityIngredients, patternOverride);
+            startAlternatives(capturedIngredients, capturedMeal, null, priorityIngredients, patternOverride, effectiveUserRequest);
           }
         } else if (type === "error") {
           const d = data as { message: string; code?: string };
@@ -745,9 +746,10 @@ export default function HomePage() {
       <IngredientConfirmView
         ingredients={confirmedIngredients}
         images={images}
-        onConfirm={(edited, priority) => {
+        onConfirm={(edited, priority, req) => {
           setConfirmedIngredients(edited);
-          startAnalysis(edited, priority);
+          setUserRequest(req);
+          startAnalysis(edited, priority, undefined, req);
         }}
         onBack={() => setView("upload")}
       />
@@ -884,8 +886,6 @@ export default function HomePage() {
               : [...prev, id]
           )
         }
-        userRequest={userRequest}
-        onChangeUserRequest={setUserRequest}
         onAnalyze={startRecognition}
         onOpenSettings={() => setView("settings")}
         onOpenHistory={() => setView("history")}
@@ -1745,8 +1745,6 @@ function UploadView({
   onSelectPattern,
   onToggleRole,
   onToggleAppliance,
-  userRequest,
-  onChangeUserRequest,
   onAnalyze,
   onOpenSettings,
   onOpenHistory,
@@ -1771,8 +1769,6 @@ function UploadView({
   onSelectPattern: (p: MealPattern) => void;
   onToggleRole: (role: ComponentRole) => void;
   onToggleAppliance: (id: string) => void;
-  userRequest: string;
-  onChangeUserRequest: (v: string) => void;
   onAnalyze: () => void;
   onOpenSettings: () => void;
   onOpenHistory: () => void;
@@ -2034,17 +2030,6 @@ function UploadView({
       )}
       {ownedAppliances.length <= 1 && <div className="mb-2" />}
 
-      <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
-        <p className="text-sm font-semibold text-gray-700 mb-2">{t("request_q")}</p>
-        <textarea
-          value={userRequest}
-          onChange={(e) => onChangeUserRequest(e.target.value)}
-          placeholder={t("request_placeholder")}
-          rows={2}
-          className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary resize-none bg-gray-50"
-        />
-      </div>
-
       <button
         onClick={onAnalyze}
         disabled={images.length === 0}
@@ -2082,7 +2067,7 @@ function IngredientConfirmView({
 }: {
   ingredients: string[];
   images: ImageItem[];
-  onConfirm: (edited: string[], priority: string[]) => void;
+  onConfirm: (edited: string[], priority: string[], userRequest: string) => void;
   onBack: () => void;
 }) {
   const t = useTranslations("ingredientConfirm");
@@ -2090,6 +2075,7 @@ function IngredientConfirmView({
   const [prioritized, setPrioritized] = useState<Set<string>>(new Set());
   const [input, setInput] = useState("");
   const [expandedImg, setExpandedImg] = useState<string | null>(null);
+  const [userRequest, setUserRequest] = useState("");
 
   const togglePriority = (item: string) => {
     setPrioritized((prev) => {
@@ -2126,7 +2112,7 @@ function IngredientConfirmView({
       ingredient_count: items.length,
       priority_count: priority.length,
     });
-    onConfirm(items, priority);
+    onConfirm(items, priority, userRequest);
   };
 
   return (
@@ -2230,6 +2216,17 @@ function IngredientConfirmView({
             {t("add_btn")}
           </button>
         </div>
+      </div>
+
+      <div className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
+        <p className="text-sm font-semibold text-gray-700 mb-2">{t("request_q")}</p>
+        <textarea
+          value={userRequest}
+          onChange={(e) => setUserRequest(e.target.value)}
+          placeholder={t("request_placeholder")}
+          rows={2}
+          className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-primary resize-none bg-gray-50"
+        />
       </div>
 
       <button

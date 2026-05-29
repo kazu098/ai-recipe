@@ -266,7 +266,9 @@
     "placeholder": "e.g. pork belly, eggs...",
     "add_btn": "Add",
     "confirm_btn": "Plan my meal with these ingredients",
-    "expanded_alt": "Fridge photo"
+    "expanded_alt": "Fridge photo",
+    "request_q": "Request (optional)",
+    "request_placeholder": "e.g. I want curry, use the cabbage..."
   },
   "authCallback": {
     "loading": "Logging in..."

@@ -266,7 +266,9 @@
     "placeholder": "例: 豚バラ肉、卵...",
     "add_btn": "追加",
     "confirm_btn": "この食材で献立を決める",
-    "expanded_alt": "冷蔵庫の写真"
+    "expanded_alt": "冷蔵庫の写真",
+    "request_q": "リクエスト（任意）",
+    "request_placeholder": "例: カレーを作りたい、白菜を使って..."
   },
   "authCallback": {
     "loading": "ログイン中..."
