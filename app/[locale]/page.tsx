@@ -13,7 +13,7 @@ import {
   type MealPattern,
   type ComponentRole,
 } from "@/lib/meal-patterns";
-import { Settings, ArrowLeft, Camera, Heart, Zap, ChefHat, History, ChevronRight, MessageSquare } from "lucide-react";
+import { Settings, ArrowLeft, Camera, Heart, Zap, ChefHat, History, ChevronRight, MessageSquare, Home } from "lucide-react";
 import { trackEvent, EVENTS } from "@/lib/analytics";
 import { detectIsIOSApp } from "@/lib/platform";
 
@@ -2803,7 +2803,7 @@ function RecipeView({
               onClick={onHome}
               className="w-full py-3 rounded-2xl text-sm font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center gap-2"
             >
-              <Camera size={16} />
+              <Home size={16} />
               {t("retake")}
             </button>
           </div>
