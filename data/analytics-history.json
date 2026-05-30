@@ -6,5 +6,13 @@
     "ctaClicks": 3,
     "newUsers": 0,
     "mealSuggested": 0
+  },
+  {
+    "date": "2026-05-29",
+    "sessions": 16,
+    "users": 14,
+    "ctaClicks": 1,
+    "newUsers": 0,
+    "mealSuggested": 1
   }
 ]
