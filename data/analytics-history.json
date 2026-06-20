@@ -174,5 +174,13 @@
     "ctaClicks": null,
     "newUsers": 0,
     "mealSuggested": 0
+  },
+  {
+    "date": "2026-06-19",
+    "sessions": null,
+    "users": null,
+    "ctaClicks": null,
+    "newUsers": 0,
+    "mealSuggested": 0
   }
 ]
