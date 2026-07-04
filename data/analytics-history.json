@@ -1,13 +1,5 @@
 [
   {
-    "date": "2026-06-03",
-    "sessions": 9,
-    "users": 8,
-    "ctaClicks": 0,
-    "newUsers": 0,
-    "mealSuggested": 0
-  },
-  {
     "date": "2026-06-04",
     "sessions": 7,
     "users": 6,
@@ -233,6 +225,14 @@
   },
   {
     "date": "2026-07-02",
+    "sessions": null,
+    "users": null,
+    "ctaClicks": null,
+    "newUsers": null,
+    "mealSuggested": null
+  },
+  {
+    "date": "2026-07-03",
     "sessions": null,
     "users": null,
     "ctaClicks": null,
